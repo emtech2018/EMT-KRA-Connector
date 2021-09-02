@@ -12,6 +12,6 @@ public class ServiceApplication extends SpringBootServletInitializer {
 	public static void main(String[] args) {
 		SpringApplication.run(ServiceApplication.class, args);
 		//Publish web service end point when the application runs
-		Endpoint.publish("http://192.168.154.1:1958/ws/kra", new PaymentService());
+		Endpoint.publish("http://192.168.154.1:1958/Itax4VCBservice/ws/kra", new PaymentService());
 	}
 }

@@ -20,24 +20,9 @@ public class PaymentController {
         return service.consultEslip(prn);
     }
 
-    //Posting a Payment
-    @RequestMapping("/pay/{prn}/{mop}")
-    public PaymentResponse payTax(@PathVariable("prn") String prn, @PathVariable("mop") String mop) throws IOException, JAXBException {
-        return service.postPayment(prn,mop);
+    //Posting Tax Payment
+    @RequestMapping("/pay/{prn}/{mop}/{cno}/{account}")
+    public PaymentResponse payTaxCash(@PathVariable("prn") String prn, @PathVariable("mop") String mop, @PathVariable("cno") String cno,@PathVariable("account") String account) throws IOException, JAXBException {
+        return service.postTaxPayment(prn,mop,cno,account);
     }
-
-    /*Test DB (Save Consult E-Slip Data)
-    @RequestMapping("/testdb")
-    public String testDB()
-    {
-        return service.testDB();
-    }
-
-    //Test DB (Save Post Payment Data)
-    @RequestMapping("/testpay")
-    public String testDBPostPayment()
-    {
-        return service.testSavePayment();
-    }
-     */
 }

@@ -68,6 +68,7 @@ public class PaymentService {
     Random rn = new Random();
     int traceno = rn.nextInt(max - min + 1) + min;
 
+
     //Consulting an Eslip
     @WebMethod
     @WebResult(name = "return", targetNamespace = "")
@@ -396,15 +397,16 @@ public class PaymentService {
         return response;
     }
 
-
-    //Process Payment
+    //Process Tax Payment
     //2.POST Payment to the I-TAX Payment Gateway
     @WebMethod
     @WebResult(name = "response", targetNamespace = "")
     @RequestWrapper(localName = "processPayment", targetNamespace = "http://impl.facade.pg.kra.tcs.com/", className = "com.emtech.impl.AcceptPayment")
     @ResponseWrapper(localName = "processPaymentResponse", targetNamespace = "http://impl.facade.pg.kra.tcs.com/", className = "com.emtech.impl.PaymentResponse")
-    public PaymentResponse postPayment(@WebParam(name = "eSlipNumber", targetNamespace = "") String eSlipNumber,
-                                       @WebParam(name = "meansOfPayment", targetNamespace = "") String meansOfPayment) throws IOException, JAXBException {
+    public PaymentResponse postTaxPayment(@WebParam(name = "eSlipNumber", targetNamespace = "") String eSlipNumber,
+                                           @WebParam(name = "meansOfPayment", targetNamespace = "") String meansOfPayment,
+                                           @WebParam(name = "chequeno", targetNamespace = "") String chequeno,
+                                           @WebParam(name = "account", targetNamespace = "") String account) throws IOException, JAXBException {
         System.out.println("E-Slip Number : " + eSlipNumber);
         String ccrspayment = "";
         //Decrypt Credentials
@@ -413,33 +415,54 @@ public class PaymentService {
         String password = Encryptor.decrypt(key, initVector, PASSWORD);
         String username = Encryptor.decrypt(key, initVector, LOGINID);
 
+        //Time Stamp
+        String timestamp = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date());
+        String bankbranch = "54001";
+        String bankid = "54";
+        String amount = DatabaseMethods.selectValues("SELECT totalamount FROM custom.eslip_data WHERE eslipnumber = ?", 1, 1, eSlipNumber);
+
+        //Random number for teller id
+        Random r = new Random();
+        int low = 10;
+        int high = 100;
+        String tellerid = String.valueOf(r.nextInt(high - low) + low);
+
+
         //Update Payment Details Query
-        String update_query = "UPDATE custom.paymentdetails SET poststatus = ?,responsecode = ?,responsestatus =?,message = ? WHERE eslipnumber ='"+eSlipNumber+"'";
+        String update_query = "UPDATE custom.paymentdetails SET poststatus = ?,responsecode = ?,responsestatus =?,message = ? WHERE eslipnumber ='" + eSlipNumber + "'";
         //Select Query
         String select_query = "SELECT poststatus FROM custom.paymentdetails WHERE eslipnumber = ?";
         //Update E-Slip Details Query
-        String update_eslip_query = "UPDATE custom.eslip_data SET eslipstatus = ? WHERE eslipnumber = '"+eSlipNumber+"'";
+        String update_eslip_query = "UPDATE custom.eslip_data SET eslipstatus = ? WHERE eslipnumber = '" + eSlipNumber + "'";
         //Select Query for checking if a payment for an e-slip has been posted
         String select_eslip_status = "SELECT eslipstatus FROM custom.eslip_data WHERE eslipnumber = ?";
+        //Select Query for counting the number of records in the E-Slip Data Table
+        String select_count = "SELECT COUNT(*) FROM custom.eslip_data WHERE ESLIPNUMBER = ?";
         //Instance of Payment Response class
         PaymentResponse response = new PaymentResponse();
 
-        //Checking If Payment Has Already Been Posted For an E-Slip \\
-        if(DatabaseMethods.selectValues(select_eslip_status, 1, 1, eSlipNumber).equalsIgnoreCase("Y")) {
-            logger.info("POSTING PAYMENT :: CHECKING PRN NUMBER :: RESPONSE :: PAYMENT WAS ALREADY POSTED FOR THIS E-SLIP NUMBER");
+        //Checking if the PRN has been Consulted
+        if(!DatabaseMethods.selectValues(select_count, 1, 1, eSlipNumber).equalsIgnoreCase("1")) {
+            logger.info("POSTING PAYMENT :: CHECKING PRN NUMBER :: THIS PRN (E-SLIP) NUMBER HAS NOT BEEN CONSULTED :: CONSULT THE E-SLIP FIRST");
+            //Customizing the response
+            response.setMessage("CHECKING PRN NUMBER :: THIS PRN (E-SLIP) NUMBER HAS NOT BEEN CONSULTED :: CONSULT THE E-SLIP FIRST");
+            response.setResponseCode("60010");
+            response.setStatus("NOK");
+            response.setPaymentNumber(eSlipNumber);
         }
-        else {
+        //Checking If Payment Has Already Been Posted For an E-Slip \\
+        else if (DatabaseMethods.selectValues(select_eslip_status, 1, 1, eSlipNumber).equalsIgnoreCase("Y")) {
+            logger.info("POSTING PAYMENT :: CHECKING PRN NUMBER :: RESPONSE :: PAYMENT WAS ALREADY POSTED FOR THIS E-SLIP NUMBER");
+            //Customizing the response
+            response.setMessage("CHECKING PRN NUMBER :: PAYMENT WAS ALREADY POSTED FOR THIS E-SLIP NUMBER");
+            response.setResponseCode("60010");
+            response.setStatus("NOK");
+            response.setPaymentNumber(eSlipNumber);
+        } else {
             //Instance of the Payment File Class
             PaymentDetails pd = new PaymentDetails();
-            //Cheque Details
+            //Instance of the Cheque Details Class
             ChequeDetails cd = new ChequeDetails();
-            cd.setBankOfCheque("");
-            cd.setBranchOfCheque("");
-            cd.setChequeNumber("");
-            cd.setChequeDate("");
-            cd.setChequeAmount("");
-            cd.setChequeAccount("");
-            //cd.setChequeType("");
 
             //Array List with Cheque details
             ArrayList<ChequeDetails> chequeDetailsArrayList = new ArrayList<>();
@@ -448,12 +471,12 @@ public class PaymentService {
             //Payment Header
             PaymentHeader ph = new PaymentHeader();
             ph.setSystemCode(SYSTEMCODE);
-            ph.setBranchCode("54001");
-            ph.setBankTellerId("12");
+            ph.setBranchCode(bankbranch);
+            ph.setBankTellerId(tellerid);
             ph.setBankTellerName("TEST VCB");
             ph.setPaymentMode(PAYMENTMODE);
             ph.setMeansofPayment(meansOfPayment);
-            ph.setChequeAmount("0");
+            ph.setChequeAmount("");
             ph.setRemitterId(REMiTTERID);
             ph.setRemitterName(REMITTERNAME);
             ph.setESlipNumber(eSlipNumber);
@@ -462,12 +485,12 @@ public class PaymentService {
             ph.setPaymentReference(DatabaseMethods.selectValues("SELECT taxcomponent FROM custom.eslip_data WHERE eslipnumber = ?", 1, 1, eSlipNumber));
             ph.setTaxpayerName(DatabaseMethods.selectValues("SELECT taxpayerfullname FROM custom.eslip_data WHERE eslipnumber = ?", 1, 1, eSlipNumber));
             ph.setTaxpayerPIN(DatabaseMethods.selectValues("SELECT taxpayerpin FROM custom.eslip_data WHERE eslipnumber = ?", 1, 1, eSlipNumber));
-            ph.setTotalAmount(DatabaseMethods.selectValues("SELECT totalamount FROM custom.eslip_data WHERE eslipnumber = ?", 1, 1, eSlipNumber));
+            ph.setTotalAmount(amount);
             ph.setDocRefNumber(DatabaseMethods.selectValues("SELECT docrefnumber FROM custom.eslip_data WHERE eslipnumber = ?", 1, 1, eSlipNumber));
-            ph.setDateOfCollection(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date()));
-            //ph.setDateOfCollection("2021-07-09T16:43:06");
+            ph.setDateOfCollection(timestamp);
             ph.setCurrency(CURRENCY);
-            ph.setCashAmount(DatabaseMethods.selectValues("SELECT totalamount FROM custom.eslip_data WHERE eslipnumber = ?", 1, 1, eSlipNumber));
+            ph.setCashAmount(amount);
+
             //Arraylist with payment header details
             ArrayList<PaymentHeader> paymentHeaderArrayList = new ArrayList<>();
             paymentHeaderArrayList.add(ph);
@@ -476,10 +499,30 @@ public class PaymentService {
             //Means Of Payment is Cash (Do Not Add Cheque Details to the Payment XML)
             if (meansOfPayment.equalsIgnoreCase("1")) {
                 logger.info("POSTING PAYMENT :: MEANS OF PAYMENT :: CASH :: EXCLUDING CHEQUE DETAILS FROM THE PAYMENT XML");
+                chequeno = "N/A";
+                account  = "N/A";
+                //Set Cheque Details to N/A
+                cd.setBankOfCheque("N/A");
+                cd.setBranchOfCheque("N/A");
+                cd.setChequeNumber(chequeno);
+                cd.setChequeDate("N/A");
+                cd.setChequeAmount("N/A");
+                cd.setChequeAccount(account);
+                ph.setChequeAmount("N/A");
             }
+
             //Means of Payment = Cheque (Same Bank) and Both (Cash & Cheque) (Add Cheque Details to the Payment XML)
             else if (meansOfPayment.equalsIgnoreCase("2") || meansOfPayment.equalsIgnoreCase("3")) {
                 //Adding Cheque details to payment details
+                ph.setCashAmount("0");
+                ph.setChequeAmount(amount);
+                cd.setChequeAmount(amount);
+                cd.setChequeDate(timestamp);
+                cd.setBankOfCheque(bankid);
+                cd.setBranchOfCheque(bankbranch);
+                cd.setChequeAccount(account);
+                cd.setChequeNumber(chequeno);
+                //Adding cheque details to the arraylist
                 pd.setChequeDetails(chequeDetailsArrayList);
                 logger.info("POSTING PAYMENT :: MEANS OF PAYMENT :: BOTH/SAME BANK CHEQUE :: ADDING CHEQUE DETAILS TO THE PAYMENT XML");
             }
@@ -909,7 +952,7 @@ public class PaymentService {
                     }
                     //----END OF DATABASE UPDATE ----\\
                 }
-                }
+            }
         }
         return response;
     }
