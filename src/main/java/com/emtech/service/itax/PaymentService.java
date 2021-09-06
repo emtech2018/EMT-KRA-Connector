@@ -5,9 +5,12 @@
  */
 package com.emtech.service.itax;
 
+import com.emtech.service.Numbers2Words;
 import com.emtech.service.itax.tcs.kra.pg.facade.impl.CheckEslipResponse;
 import com.emtech.service.itax.tcs.kra.pg.facade.impl.KRAPaymentGatewayService;
 import com.emtech.service.itax.utilities.*;
+import net.sf.jasperreports.engine.*;
+import net.sf.jasperreports.engine.util.JRLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,13 +24,15 @@ import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.ws.RequestWrapper;
 import javax.xml.ws.ResponseWrapper;
+import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.Random;
+import java.util.*;
 
 /**
  *
@@ -406,7 +411,7 @@ public class PaymentService {
     public PaymentResponse postTaxPayment(@WebParam(name = "eSlipNumber", targetNamespace = "") String eSlipNumber,
                                            @WebParam(name = "meansOfPayment", targetNamespace = "") String meansOfPayment,
                                            @WebParam(name = "chequeno", targetNamespace = "") String chequeno,
-                                           @WebParam(name = "account", targetNamespace = "") String account) throws IOException, JAXBException {
+                                           @WebParam(name = "account", targetNamespace = "") String account) throws IOException, JAXBException, ClassNotFoundException, SQLException, JRException {
         System.out.println("E-Slip Number : " + eSlipNumber);
         String ccrspayment = "";
         //Decrypt Credentials
@@ -447,6 +452,7 @@ public class PaymentService {
             //Customizing the response
             response.setMessage("CHECKING PRN NUMBER :: THIS PRN (E-SLIP) NUMBER HAS NOT BEEN CONSULTED :: CONSULT THE E-SLIP FIRST");
             response.setResponseCode("60010");
+            //998608
             response.setStatus("NOK");
             response.setPaymentNumber(eSlipNumber);
         }
@@ -506,9 +512,9 @@ public class PaymentService {
                 cd.setBranchOfCheque("N/A");
                 cd.setChequeNumber(chequeno);
                 cd.setChequeDate("N/A");
-                cd.setChequeAmount("N/A");
+                cd.setChequeAmount("0");
                 cd.setChequeAccount(account);
-                ph.setChequeAmount("N/A");
+                ph.setChequeAmount("0");
             }
 
             //Means of Payment = Cheque (Same Bank) and Both (Cash & Cheque) (Add Cheque Details to the Payment XML)
@@ -620,7 +626,7 @@ public class PaymentService {
                 chequedate = "N/A";
             }
             if (chequeamount.equalsIgnoreCase("")) {
-                chequeamount = "N/A";
+                chequeamount = "0";
             }
             if (chequeaccount.equalsIgnoreCase("")) {
                 chequeaccount = "N/A";
@@ -694,6 +700,49 @@ public class PaymentService {
                             //Update Status of An E-Slip in the E-Slip data table
                             int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
                             logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
+
+                            //Save the Receipt as a Pdf file after successful payment
+                            Numbers2Words ntw = new Numbers2Words();
+                            Class.forName("oracle.jdbc.driver.OracleDriver");
+                            String serverName = "3.21.220.181";
+                            String portNumber = "1521";
+                            String sid = "sitdb";
+                            String url = "jdbc:oracle:thin:@" + serverName + ":" + portNumber + ":" + sid;
+                            String uname = "system";
+                            String pass = "manager";
+                            String input = "/home/emukule/Downloads/emtech-vcb-itax/receipt.jasper";
+                            String output ="/home/emukule/Downloads/emtech-vcb-itax/receipt.pdf";
+                            String select_amount = "SELECT totalamount FROM custom.eslip_data WHERE eslipnumber = ?";
+                            String amnt = DatabaseMethods.selectValues("SELECT totalamount FROM custom.eslip_data WHERE eslipnumber = ?", 1, 1, eSlipNumber);
+                            String resp_onse = "";
+                            //Check if amount is 0
+                            if(!amnt.equalsIgnoreCase("0") && !amnt.equalsIgnoreCase("")) {
+                                String word = null;
+                                word = ntw.EnglishNumber(Long.parseLong(amount));
+                                Connection con = DriverManager.getConnection(url, uname, pass);
+                                JasperReport jasperReport
+                                        = (JasperReport) JRLoader.loadObjectFromFile(input);
+                                Map parameters = new HashMap();
+                                parameters.put("prn", eSlipNumber);
+                                parameters.put("words", word);
+                                // Fill the Jasper Report
+                                JasperPrint jasperPrint
+                                        = JasperFillManager.fillReport(jasperReport, parameters, con);
+                                // Creation of the Pdf Jasper Reports
+                                File f = new File(output.trim());
+                                if (f.exists() && !f.isDirectory()) {
+                                    output = "/home/emukule/Downloads/emtech-vcb-itax/receipt-" + eSlipNumber + ".pdf";
+                                }
+                                JasperExportManager.exportReportToPdfFile(jasperPrint, output);
+                                resp_onse = "Successful!";
+                                logger.info("POST PAYMENT :: SAVE RECEIPT :: DONE :: RECEIPT NAME :: "+output+ " :: RESPONSE :: "+resp_onse);
+                            }
+                            else
+                            {
+                                resp_onse = "Failed because amount is Ksh.0";
+                                logger.info("POST PAYMENT :: SAVE RECEIPT :: FAILED :: RESPONSE :: "+resp_onse);
+                            }
+
                         }
                     } else {
                         logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: RESPONSE FOR THIS PRN WAS ALREADY RECEIVED :: SKIPPING UPDATE TASK");

@@ -78,7 +78,6 @@ public class DatabaseMethods {
     public static String selectValues(String sql, int w, int params, String args) {
         String k = "";
         System.out.println("DATABASE METHODS :: SELECT VALUES :: Getting Database Connection");
-        //logger.info("DATABASE METHODS :: SELECT VALUES :: Getting Database Connection");
         DatabaseConnection dbconn = new DatabaseConnection();
         try {
             Connection conn = dbconn.dbConnection();

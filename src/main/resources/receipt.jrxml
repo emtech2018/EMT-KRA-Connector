@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Jaspersoft Studio version 6.17.0.final using JasperReports Library version 6.17.0-6d93193241dd8cc42629e188b94f9e0bc5722efd  -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="receipt" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="75347482-221b-4ab5-b3d4-1c62bcc44869">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="net.sf.jasperreports.awt.ignore.missing.font" value="true"/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="New Data Adapter (2)"/>
+	<parameter name="prn" class="java.lang.String" isForPrompting="false"/>
+	<queryString language="SQL">
+		<![CDATA[select * from custom.paymentdetails where eslipnumber = $P{prn}]]>
+	</queryString>
+	<field name="BRANCHCODE" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="BRANCHCODE"/>
+		<property name="com.jaspersoft.studio.field.label" value="BRANCHCODE"/>
+	</field>
+	<field name="BANKTELLERID" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="BANKTELLERID"/>
+		<property name="com.jaspersoft.studio.field.label" value="BANKTELLERID"/>
+	</field>
+	<field name="BANKTELLERNAME" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="BANKTELLERNAME"/>
+		<property name="com.jaspersoft.studio.field.label" value="BANKTELLERNAME"/>
+	</field>
+	<field name="PAYMENTMODE" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="PAYMENTMODE"/>
+		<property name="com.jaspersoft.studio.field.label" value="PAYMENTMODE"/>
+	</field>
+	<field name="MEANSOFPAYMENT" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="MEANSOFPAYMENT"/>
+		<property name="com.jaspersoft.studio.field.label" value="MEANSOFPAYMENT"/>
+	</field>
+	<field name="REMITTERID" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="REMITTERID"/>
+		<property name="com.jaspersoft.studio.field.label" value="REMITTERID"/>
+	</field>
+	<field name="REMITTERNAME" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="REMITTERNAME"/>
+		<property name="com.jaspersoft.studio.field.label" value="REMITTERNAME"/>
+	</field>
+	<field name="ESLIPNUMBER" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="ESLIPNUMBER"/>
+		<property name="com.jaspersoft.studio.field.label" value="ESLIPNUMBER"/>
+	</field>
+	<field name="PAYMENTADVICEDATE" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="PAYMENTADVICEDATE"/>
+		<property name="com.jaspersoft.studio.field.label" value="PAYMENTADVICEDATE"/>
+	</field>
+	<field name="PAYMENTREFERENCE" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="PAYMENTREFERENCE"/>
+		<property name="com.jaspersoft.studio.field.label" value="PAYMENTREFERENCE"/>
+	</field>
+	<field name="TAXPAYERPIN" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="TAXPAYERPIN"/>
+		<property name="com.jaspersoft.studio.field.label" value="TAXPAYERPIN"/>
+	</field>
+	<field name="TAXPAYERFULLNAME" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="TAXPAYERFULLNAME"/>
+		<property name="com.jaspersoft.studio.field.label" value="TAXPAYERFULLNAME"/>
+	</field>
+	<field name="TOTALAMOUNT" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="TOTALAMOUNT"/>
+		<property name="com.jaspersoft.studio.field.label" value="TOTALAMOUNT"/>
+	</field>
+	<field name="DATEOFCOLLECTION" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="DATEOFCOLLECTION"/>
+		<property name="com.jaspersoft.studio.field.label" value="DATEOFCOLLECTION"/>
+	</field>
+	<field name="CASHAMOUNT" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="CASHAMOUNT"/>
+		<property name="com.jaspersoft.studio.field.label" value="CASHAMOUNT"/>
+	</field>
+	<field name="CHEQUESAMOUNT" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="CHEQUESAMOUNT"/>
+		<property name="com.jaspersoft.studio.field.label" value="CHEQUESAMOUNT"/>
+	</field>
+	<field name="HASHCODE" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="HASHCODE"/>
+		<property name="com.jaspersoft.studio.field.label" value="HASHCODE"/>
+	</field>
+	<field name="BANKOFCHEQUE" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="BANKOFCHEQUE"/>
+		<property name="com.jaspersoft.studio.field.label" value="BANKOFCHEQUE"/>
+	</field>
+	<field name="BRANCHOFCHEQUE" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="BRANCHOFCHEQUE"/>
+		<property name="com.jaspersoft.studio.field.label" value="BRANCHOFCHEQUE"/>
+	</field>
+	<field name="CHEQUENUMBER" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="CHEQUENUMBER"/>
+		<property name="com.jaspersoft.studio.field.label" value="CHEQUENUMBER"/>
+	</field>
+	<field name="CHEQUEDATE" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="CHEQUEDATE"/>
+		<property name="com.jaspersoft.studio.field.label" value="CHEQUEDATE"/>
+	</field>
+	<field name="CHEQUEAMOUNT" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="CHEQUEAMOUNT"/>
+		<property name="com.jaspersoft.studio.field.label" value="CHEQUEAMOUNT"/>
+	</field>
+	<field name="CHEQUEACCOUNT" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="CHEQUEACCOUNT"/>
+		<property name="com.jaspersoft.studio.field.label" value="CHEQUEACCOUNT"/>
+	</field>
+	<field name="DATEOFPAYMENT" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="DATEOFPAYMENT"/>
+		<property name="com.jaspersoft.studio.field.label" value="DATEOFPAYMENT"/>
+	</field>
+	<field name="POSTSTATUS" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="POSTSTATUS"/>
+		<property name="com.jaspersoft.studio.field.label" value="POSTSTATUS"/>
+	</field>
+	<field name="RESPONSECODE" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="RESPONSECODE"/>
+		<property name="com.jaspersoft.studio.field.label" value="RESPONSECODE"/>
+	</field>
+	<field name="RESPONSESTATUS" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="RESPONSESTATUS"/>
+		<property name="com.jaspersoft.studio.field.label" value="RESPONSESTATUS"/>
+	</field>
+	<field name="MESSAGE" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="MESSAGE"/>
+		<property name="com.jaspersoft.studio.field.label" value="MESSAGE"/>
+	</field>
+	<field name="CHANNELID" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="CHANNELID"/>
+		<property name="com.jaspersoft.studio.field.label" value="CHANNELID"/>
+	</field>
+	<field name="CURRENCY" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="CURRENCY"/>
+		<property name="com.jaspersoft.studio.field.label" value="CURRENCY"/>
+	</field>
+	<detail>
+		<band height="50" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-266" x="0" y="10" width="150" height="19" uuid="fdd7a759-36eb-4e49-9568-2c231126792b"/>
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[TaxPayer Full Name : ]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-266" x="40" y="30" width="110" height="20" uuid="012027bb-7f50-43f0-bdda-1894df48c458"/>
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Tax Payer PIN : ]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-70" x="150" y="10" width="294" height="20" uuid="fe958ce1-227e-4421-9371-9573606a3dcd"/>
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{TAXPAYERFULLNAME}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-70" x="150" y="30" width="294" height="20" uuid="2d151d18-aeef-47bf-92c7-b983cda04122"/>
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{TAXPAYERPIN}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

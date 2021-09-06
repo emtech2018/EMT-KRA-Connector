@@ -36,7 +36,7 @@ public class DatabaseConnection {
     //private static final Logger logger= LoggerFactory.getLogger(DatabaseConnection.class);
 
     //Connecting to MySQL Database
-    public Connection dbConnection() {
+    public static Connection dbConnection() {
         Connection conn = null;
         /*
         try {
