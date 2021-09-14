@@ -48,7 +48,7 @@ public class DatabaseMethods {
 
     //Find Duplicate Values
     public static boolean findDuplicates(String sql, int params, String args) {
-        System.out.println("DATABASE METHODS :: FIND DUPLICATES :: Getting Database Connection");
+        //System.out.println("DATABASE METHODS :: FIND DUPLICATES :: Getting Database Connection");
         //logger.info("DATABASE METHODS :: FIND DUPLICATES :: Getting Database Connection");
         DatabaseConnection dbconn = new DatabaseConnection();
         try {
@@ -77,7 +77,7 @@ public class DatabaseMethods {
     //Get Values From the Database
     public static String selectValues(String sql, int w, int params, String args) {
         String k = "";
-        System.out.println("DATABASE METHODS :: SELECT VALUES :: Getting Database Connection");
+        //System.out.println("DATABASE METHODS :: SELECT VALUES :: Getting Database Connection");
         DatabaseConnection dbconn = new DatabaseConnection();
         try {
             Connection conn = dbconn.dbConnection();

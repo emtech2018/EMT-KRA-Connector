@@ -9,6 +9,8 @@ import javax.xml.ws.Endpoint;
 
 @SpringBootApplication
 public class ServiceApplication extends SpringBootServletInitializer {
+
+
 	public static void main(String[] args) {
 		SpringApplication.run(ServiceApplication.class, args);
 		//Publish web service end point when the application runs

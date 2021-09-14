@@ -1,6 +1,7 @@
 
 package com.emtech.service.itax.tcs.kra.pg.facade.impl;
 
+import com.emtech.service.itax.utilities.Configurations;
 import org.springframework.ws.WebServiceException;
 
 import java.net.MalformedURLException;
@@ -19,20 +20,24 @@ import javax.xml.ws.WebServiceFeature;
  * Generated source version: 2.2
  * 
  */
-@WebServiceClient(name = "KRAPaymentGatewayService", targetNamespace = "http://impl.facade.pg.kra.tcs.com/", wsdlLocation = "file:/home/emukule/Downloads/KRAPaymentGateway.wsdl")
+
+//@WebServiceClient(name = "KRAPaymentGatewayService", targetNamespace = "http://impl.facade.pg.kra.tcs.com/", wsdlLocation = "file:/home/emukule/Downloads/KRAPaymentGateway.wsdl")
+@WebServiceClient(name = "KRAPaymentGatewayService", targetNamespace = "http://impl.facade.pg.kra.tcs.com/")
 public class KRAPaymentGatewayService
     extends Service
 {
-
     private final static URL KRAPAYMENTGATEWAYSERVICE_WSDL_LOCATION;
     private final static WebServiceException KRAPAYMENTGATEWAYSERVICE_EXCEPTION;
     private final static QName KRAPAYMENTGATEWAYSERVICE_QNAME = new QName("http://impl.facade.pg.kra.tcs.com/", "KRAPaymentGatewayService");
+
+    //Instance of the Configuration Classes
+    static Configurations cn = new Configurations();
 
     static {
         URL url = null;
         WebServiceException e = null;
         try {
-            url = new URL("file:/home/emukule/Downloads/KRAPaymentGateway.wsdl");
+            url = new URL(cn.getProperties().getProperty("itax.wsdl.location"));
         } catch (MalformedURLException ex) {
             //e = new WebServiceException(ex);
         }

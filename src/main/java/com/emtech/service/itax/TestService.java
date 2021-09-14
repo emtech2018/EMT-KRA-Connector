@@ -1,29 +1,21 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package com.emtech.service.itax;
+
+//Class that will handle all requests and giving responses without the need for hitting KRA
+//It will be giving responses for consulting and posting of payment
 
 import com.emtech.service.Numbers2Words;
 import com.emtech.service.itax.tcs.kra.pg.facade.impl.CheckEslipResponse;
-import com.emtech.service.itax.tcs.kra.pg.facade.impl.KRAPaymentGatewayService;
 import com.emtech.service.itax.utilities.*;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.util.JRLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
-import javax.jws.WebMethod;
-import javax.jws.WebParam;
-import javax.jws.WebResult;
-import javax.jws.WebService;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
-import javax.xml.ws.RequestWrapper;
-import javax.xml.ws.ResponseWrapper;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
@@ -38,38 +30,34 @@ import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-/**
- *
- * @author emukule
- */
-@WebService(serviceName = "PaymentService")
-public class PaymentService {
+@Service
+public class TestService {
     //Instance of the Configuration Classes
     Configurations cn = new Configurations();
     //Log In ID
-    private String LOGINID = cn.getProperties().getProperty("itax.username").trim();
+    private String LOGINID = cn.getProperties().getProperty("itax.username");
     //Password
-    private String PASSWORD = cn.getProperties().getProperty("itax.password").trim();
+    private String PASSWORD = cn.getProperties().getProperty("itax.password");
     //Bank Code
-    private String BANKCODE = cn.getProperties().getProperty("itax.bankcode").trim();
+    private String BANKCODE = cn.getProperties().getProperty("itax.bankcode");
     //System Code
-    private String SYSTEMCODE = cn.getProperties().getProperty("itax.systemcode").trim();
+    private String SYSTEMCODE = cn.getProperties().getProperty("itax.systemcode");
     //Payment Mode
-    private String PAYMENTMODE = cn.getProperties().getProperty("itax.mofp1").trim();
+    private String PAYMENTMODE = cn.getProperties().getProperty("itax.mofp1");
     //Currency
-    private String CURRENCY = cn.getProperties().getProperty("itax.currency").trim();
+    private String CURRENCY = cn.getProperties().getProperty("itax.currency");
     //Remitter Id
-    private String REMiTTERID = cn.getProperties().getProperty("itax.remitterid").trim();
+    private String REMiTTERID = cn.getProperties().getProperty("itax.remitterid");
     //Remitter Name
-    private String REMITTERNAME = cn.getProperties().getProperty("itax.remittername").trim();
+    private String REMITTERNAME = cn.getProperties().getProperty("itax.remittername");
     //Teller Name
-    private String tellername = cn.getProperties().getProperty("itax.tellername").trim();
+    private String tellername = cn.getProperties().getProperty("itax.tellername");
     //Bank Branch
-    private String bankbranch = cn.getProperties().getProperty("itax.bankbranch").trim();
+    private String bankbranch = cn.getProperties().getProperty("itax.bankbranch");
     //Encryption Key
-    private String key = cn.getProperties().getProperty("enc.key").trim();
+    private String key = cn.getProperties().getProperty("enc.key");
     //Encryption Init Vector
-    private String initVector =  cn.getProperties().getProperty("enc.initVector").trim();
+    private String initVector =  cn.getProperties().getProperty("enc.initVector");
     //Database Connection Class
     DatabaseMethods db = new DatabaseMethods();
     //Common Utilities Class
@@ -82,23 +70,21 @@ public class PaymentService {
     Random rn = new Random();
     int traceno = rn.nextInt(max - min + 1) + min;
     //Receipts Folder
-    String folder = cn.getProperties().getProperty("itax.folder").trim();
-    //Variable
-    //Connection Timeout
-    private int PAYMENT_GATEWAY_WEBSERVICE_TIMEOUT = Integer.parseInt(cn.getProperties().getProperty("itax.wsdl.timeout").trim());
-    //Web Service URL
-    private String PAYMENT_GATEWAY_WEBSERVICE_URL = cn.getProperties().getProperty("itax.wsdl.url").trim();
+    String folder = cn.getProperties().getProperty("itax.folder");
 
-    //Consulting an Eslip
-    @WebMethod
-    @WebResult(name = "return", targetNamespace = "")
-    @RequestWrapper(localName = "consult", targetNamespace = "http://impl.facade.pg.kra.tcs.com/", className = "com.emtech.impl.CheckEslip")
-    @ResponseWrapper(localName = "consultResponse", targetNamespace = "http://impl.facade.pg.kra.tcs.com/", className = "com.emtech.impl.CheckEslipResponse")
-    //1. Consulting the PRN (E-SLIP NUMBER)
-    public CheckEslipResponse consultEslip(
-            @WebParam(name = "eslipNumber", targetNamespace = "") String prn)  throws IOException, JAXBException {
-        String password = Encryptor.decrypt(key,initVector,PASSWORD);
-        String username = Encryptor.decrypt(key,initVector,LOGINID);
+    //For testing the configuration file
+    public String test()
+    {
+        String a1 = cn.getProperties().getProperty("itax.input");
+        String a2 = cn.getProperties().getProperty("itax.output");
+        String a3 = cn.getProperties().getProperty("itax.password");
+        String a4 = cn.getProperties().getProperty("itax.username");
+        String a5 =a1+"\n"+a2+"\n"+a3+"\n"+a4;
+        return a5;
+    }
+
+    //CONSULTING AN E-SLIP
+    public CheckEslipResponse consultEslip(String prn)  throws IOException, JAXBException {
         String responseXML = "";
         //Update Query For status VALID
         String update_valid_query = cn.getProperties().getProperty("sql.update.valid.status");
@@ -108,22 +94,14 @@ public class PaymentService {
         String select_query = cn.getProperties().getProperty("sql.select.query");
         //Select query for tax-code (checking duplicates)
         String select_query_taxcode = cn.getProperties().getProperty("sql.select.query.taxcode");
-        //Timestamp
-        String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
         CheckEslipResponse response = new CheckEslipResponse();
-        KRAPaymentGatewayService kra = new KRAPaymentGatewayService();
         //Disable Certificate Checking
         cu.disableVerification();
         logger.info("STARTING CONSULTING PRN NUMBER "+ prn);
-        logger.info("Connecting to the Payment Gateway " + kra.getWSDLDocumentLocation());
-        kra.getWSDLDocumentLocation().openConnection().connect();
-        kra.getWSDLDocumentLocation().openConnection().setConnectTimeout(PAYMENT_GATEWAY_WEBSERVICE_TIMEOUT);
-
         //----START OF DATABASE INSERT ----\\
         //SAVE DETAILS TO BE SENT TO KRA FOR CONSULTING IN THE DATABASE
         logger.info("CONSULT E-SLIP :: SAVE DATA TO BE SENT TO DB :: STARTING TO SAVE E-SLIP DATA");
         String sendsql = cn.getProperties().getProperty("sql.insert.query");
-
         //Select query for checking delete flag
         //delete flag
         String selectflag = cn.getProperties().getProperty("sql.query.select.deleteflag").trim();
@@ -151,7 +129,6 @@ public class PaymentService {
             if (DatabaseMethods.findDuplicates(select_query_taxcode, 1, String.valueOf(traceno))) {
                 traceno = rn.nextInt(max - min + 1) + min;
             }
-
             String senddata = "" + traceno + "," + prn + ",N/A" + ",N/A" + ",N/A" + ",N/A" + ",N/A" + ",N/A" + ",N/A" + ",N/A" + ",0000" + ",N/A" + ",N/A" + ",0000" + ",N/A" + ",N/A" + ",0000" + "," + new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date()) + "," + new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date()) + "," + "N" + "," + "CS";
             //Check for duplicate values
             if (DatabaseMethods.findDuplicates(select_query, 1, prn)) {
@@ -165,7 +142,66 @@ public class PaymentService {
             //----END OF DATABASE INSERT ----\\
             //Consulting
             logger.info("Consulting the E-SLIP No " + prn);
-            responseXML = kra.getKRAPaymentGatewayPort().checkEslip(username, password, prn);
+
+            //Response XML for status VALID
+            responseXML = "<ESLIP>\n" +
+                    "<RESULT>\n" +
+                    "<Status>VALID</Status>\n" +
+                    "<Remarks>REQUESTED/CONSULTED E SLIP NUMBER (PRN) EXISTS IN THE SYSTEM</Remarks>\n" +
+                    "</RESULT>\n" +
+                    "<hashCode>526326a00c125f064c2fc7bcd3119f2a4b7b0e7bd3006651a32a766e995b2d71</hashCode>\n" +
+                    "<ESLIPHEADER>\n" +
+                    "<SystemCode>PG</SystemCode>\n" +
+                    "<EslipNumber>" + prn + "</EslipNumber>\n" +
+                    "<SlipPaymentCode></SlipPaymentCode>\n" +
+                    "<PaymentAdviceDate>2021-07-09T16:43:06</PaymentAdviceDate>\n" +
+                    "<TaxpayerPin>P000598480M</TaxpayerPin>\n" +
+                    "<TaxpayerFullName>Siginon Group Limited</TaxpayerFullName>\n" +
+                    "<TotalAmount>5493</TotalAmount>\n" +
+                    "<DocRefNumber></DocRefNumber>\n" +
+                    "<Currency>KES</Currency>\n" +
+                    "</ESLIPHEADER>\n" +
+                    "<ESLIPDETAILS>\n" +
+                    "<TaxCode>1506</TaxCode>\n" +
+                    "<TaxHead></TaxHead>\n" +
+                    "<TaxComponent>Licence Application Fee       </TaxComponent>\n" +
+                    "<AmountPerTax>5493</AmountPerTax>\n" +
+                    "<TaxPeriod>2021-07-09</TaxPeriod>\n" +
+                    "</ESLIPDETAILS>\n" +
+                    "</ESLIP>";
+        /*
+        //Response XML for status UTILIZED
+        responseXML = "<ESLIP>\n" +
+                "<RESULT>\n" +
+                "<Status>UTILIZED</Status>\n" +
+                "<Remarks>REQUESTED/CONSULTED E SLIP NUMBER (PRN) HAS BEEN TRANSACTED</Remarks>\n" +
+                "</RESULT>\n" +
+                "</ESLIP>";
+
+        //Response XML for status INVALID
+        responseXML = "<ESLIP>\n" +
+                "<RESULT>\n" +
+                "<Status>INVALID</Status>\n" +
+                "<Remarks>REQUESTED/CONSULTED E SLIP NUMBER (PRN) DOES NOT EXISTS IN THE SYSTEM</Remarks>\n" +
+                "</RESULT>\n" +
+                "</ESLIP>";
+
+        //Response XML for status ERROR
+        responseXML = "<ESLIP>\n" +
+                "<RESULT>\n" +
+                "<Status>ERROR</Status>\n" +
+                "<Remarks>EMPTY PRN,ENTER A PRN NUMBER (VALID LENGTH = 16)</Remarks>\n" +
+                "</RESULT>\n" +
+                "</ESLIP>";
+
+        //Response XML for status EXPIRED
+        responseXML = "<ESLIP>\n" +
+                "<RESULT>\n" +
+                "<Status>EXPIRED</Status>\n" +
+                "<Remarks>THE REQUESTED PRN IS EXPIRED. REQUEST YOU TO PLEASE ASK TAXPAYER TO REGISTER THE PAYMENT AGAIN ON SYSTEM</Remarks>\n" +
+                "</RESULT>\n" +
+                "</ESLIP>";
+         */
             logger.info("Unmarshalling the XML Response Now " + responseXML);
             //response.setPaymentEslip(responseXML);
             if (responseXML != null) {
@@ -263,7 +299,7 @@ public class PaymentService {
                     //----START OF DATABASE UPDATE ----\\
                     //Save PRN details in the database
                     logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: STARTING TO SAVE E-SLIP RESULTS FOR STATUS VALID");
-
+                    String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
                     String data = "" + responseStatus + "," + responseRemaks + "," + responseHash + "," + systemCode + "," + slippaymentcode + "," + paymentadvicedate + "," + taxPayerpin + "," + taxpayername + "," + totalamount + "," + docrefno + "," + currency + "," + taxcode + "," + taxhead + "," + taxcomponent + "," + amountpertax + "," + taxperiod + "," + timeStamp + "," + "N" + "," + "CR" + "," + prn;
                     int update = 0;
                     //Checking the Consult Status before making an update
@@ -296,7 +332,7 @@ public class PaymentService {
                     //----START OF DATABASE UPDATE ----\\
                     //Save PRN details in the database
                     logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: STARTING TO SAVE E-SLIP RESULTS FOR STATUS INVALID");
-
+                    String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
                     String data = "" + responseStatus + "," + responseRemaks + "," + responseHash + "," + timeStamp + "," + "N" + "," + "CR" + "," + prn;
                     int update = 0;
                     //Checking the Consult Status before making an update
@@ -330,8 +366,9 @@ public class PaymentService {
                     //----START OF DATABASE UPDATE ----\\
                     //Save PRN details in the database
                     logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: STARTING TO SAVE E-SLIP RESULTS FOR STATUS ERROR");
-
+                    String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
                     String data = "" + responseStatus + "," + responseRemaks + "," + responseHash + "," + timeStamp + "," + "N" + "," + "CR" + "," + prn;
+                    ;
                     int update = 0;
                     //Checking the Consult Status before making an update
                     if (DatabaseMethods.selectValues(select_query, 1, 1, prn).equalsIgnoreCase("CS")) {
@@ -364,7 +401,7 @@ public class PaymentService {
                     //----START OF DATABASE UPDATE ----\\
                     //Save PRN details in the database
                     logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: STARTING TO SAVE E-SLIP RESULTS FOR STATUS UTILIZED");
-
+                    String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
                     String data = "" + responseStatus + "," + responseRemaks + "," + responseHash + "," + timeStamp + "," + "N" + "," + "CR" + "," + prn;
                     int update = 0;
                     //Checking the Consult Status before making an update
@@ -380,7 +417,7 @@ public class PaymentService {
 
                 //Condition 5 : EXPIRED (Prn Number exists in the database but the requested/consulted E Slip Number (PRN) has expired.
                 else if (responseStatus.equalsIgnoreCase("EXPIRED")) {
-                    logger.info("EXPIRED : Utilized PRN Number");
+                    logger.info("EXPIRED : Expired PRN Number");
                     System.out.print("EXPIRED : Expired PRN Number");
                     //E-slip Consultation results for EXPIRED PRN
                     System.out.println("-------------------------------------------------------");
@@ -399,7 +436,7 @@ public class PaymentService {
                     //----START OF DATABASE UPDATE ----\\
                     //Save PRN details in the database
                     logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: STARTING TO SAVE E-SLIP RESULTS FOR STATUS EXPIRED");
-
+                    String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
                     String data = "" + responseStatus + "," + responseRemaks + "," + responseHash + "," + timeStamp + "," + "N" + "," + "CR" + "," + prn;
                     int update = 0;
                     //Checking the Consult Status before making an update
@@ -416,47 +453,16 @@ public class PaymentService {
                     System.out.println("UNKNOWN ERROR : CONSULTATION OPERATION FAILED!");
                 }
                 logger.info("DONE CONSULTING PRN " + prn);
+
             }
         }
         return response;
     }
 
-    //Process Tax Payment
-    //2.POST Payment to the I-TAX Payment Gateway
-    @WebMethod
-    @WebResult(name = "response", targetNamespace = "")
-    @RequestWrapper(localName = "processPayment", targetNamespace = "http://impl.facade.pg.kra.tcs.com/", className = "com.emtech.impl.AcceptPayment")
-    @ResponseWrapper(localName = "processPaymentResponse", targetNamespace = "http://impl.facade.pg.kra.tcs.com/", className = "com.emtech.impl.PaymentResponse")
-    public PaymentResponse postTaxPayment(@WebParam(name = "eSlipNumber", targetNamespace = "") String eSlipNumber,
-                                          @WebParam(name = "meansOfPayment", targetNamespace = "") String meansOfPayment,
-                                          @WebParam(name = "chequeno", targetNamespace = "") String chequeno,
-                                          @WebParam(name = "account", targetNamespace = "") String account) throws IOException, JAXBException, ClassNotFoundException, SQLException, JRException {
+    //PAYMENT PROCESSING
+    public PaymentResponse postTaxPayment(String eSlipNumber,String meansOfPayment,String chequeno,String account) throws JAXBException, SQLException, JRException, ClassNotFoundException, IOException {
         System.out.println("E-Slip Number : " + eSlipNumber);
         String ccrspayment = "";
-        //Queries
-        //Select details from e-slip data table
-        //Array with all data selected from the eslip data table
-        String[] eslipdata = null;
-        String query = cn.getProperties().getProperty("sql.query.select.eslipdetails").trim();
-        String eslipdetails = DatabaseMethods.selectValues(query, 8, 1, eSlipNumber);
-        if(!eslipdetails.equalsIgnoreCase("")) {
-            eslipdata= eslipdetails.split(",");
-        }
-
-        //Select Payment Details from payment table
-        //Array with all data selected from payment details table
-        String[] paymentdata =null;
-        String selectquery = cn.getProperties().getProperty("sql.query.select.paymentdetails").trim();
-        String pay_details = DatabaseMethods.selectValues(selectquery, 2, 1, eSlipNumber);
-        if(!pay_details.equalsIgnoreCase("")) {
-            paymentdata= pay_details.split(",");
-        }
-        //Decrypt Credentials
-        String password = Encryptor.decrypt(key, initVector, PASSWORD);
-        String username = Encryptor.decrypt(key, initVector, LOGINID);
-
-        //Time Stamp
-        String timestamp = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date());
 
         //More Variables
         String amount = "";
@@ -470,7 +476,14 @@ public class PaymentService {
         String poststat_us = "";
         String means_of_pmnt = "";
 
-        if(eslipdata.length>0) {
+        //Queries
+        //Select details from e-slip data table
+        //Array with all data selected from the eslip data table
+        String[] eslipdata = null;
+        String query = cn.getProperties().getProperty("sql.query.select.eslipdetails").trim();
+        String eslipdetails = DatabaseMethods.selectValues(query, 8, 1, eSlipNumber);
+        if(!eslipdetails.equalsIgnoreCase("")) {
+            eslipdata= eslipdetails.split(",");
             amount = eslipdata[0];
             eslip_status = eslipdata[1];
             payment_code = eslipdata[2];
@@ -479,19 +492,30 @@ public class PaymentService {
             taxpayer_fullname = eslipdata[5];
             taxpayer_pin = eslipdata[6];
             doc_refnumber = eslipdata[7];
+            System.out.println("E-Slip :: "+Arrays.toString(eslipdata));
         }
 
-        if(paymentdata.length >0)
-        {
+        //Select Payment Details from payment table
+        //Array with all data selected from payment details table
+        String[] paymentdata =null;
+        String selectquery = cn.getProperties().getProperty("sql.query.select.paymentdetails").trim();
+        String pay_details = DatabaseMethods.selectValues(selectquery, 2, 1, eSlipNumber);
+        if(!pay_details.equalsIgnoreCase("")) {
+            paymentdata= pay_details.split(",");
             poststat_us = paymentdata[0];
             means_of_pmnt = paymentdata[1];
+            System.out.println("Pay :: "+Arrays.toString(paymentdata));
         }
+
+        //Time Stamp
+        String timestamp = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date());
 
         //Random number for teller id
         Random r = new Random();
         int low = 10;
         int high = 100;
         String tellerid = String.valueOf(r.nextInt(high - low) + low);
+
         //Update Payment Details Query
         String update_query = cn.getProperties().getProperty("sql.query.update.paymentdetails").trim();
         //Update E-Slip Details Query
@@ -500,7 +524,6 @@ public class PaymentService {
         String select_count = cn.getProperties().getProperty("sql.query.select.count").trim();
         //Instance of Payment Response class
         PaymentResponse response = new PaymentResponse();
-
         //Select query for checking delete flag
         //delete flag
         String selectflag = cn.getProperties().getProperty("sql.query.select.deleteflag").trim();
@@ -637,12 +660,8 @@ public class PaymentService {
                 }
                 logger.info("POSTING PAYMENT :: PAYMENT DOCUMENT :: DONE GENERATING PAYMENT XML");
                 logger.info("POSTING PAYMENT :: STARTING POSTING OF PAYMENT");
-                KRAPaymentGatewayService kra = new KRAPaymentGatewayService();
                 //Disable Certificate Checking
                 cu.disableVerification();
-                logger.info("POSTING PAYMENT :: Connecting to the Payment Gateway :: " + kra.getWSDLDocumentLocation());
-                kra.getWSDLDocumentLocation().openConnection().connect();
-                kra.getWSDLDocumentLocation().openConnection().setConnectTimeout(PAYMENT_GATEWAY_WEBSERVICE_TIMEOUT);
                 //----START OF DATABASE INSERT ----\\
                 //VARIABLES
                 String systemCode = ph.getSystemCode();
@@ -722,7 +741,24 @@ public class PaymentService {
 
                 //Posting Payment
                 logger.info("POSTING PAYMENT :: Posting Payment Now for :: " + ccrspayment);
-                String responseXML = kra.getKRAPaymentGatewayPort().acceptPayment(username, password, ccrspayment);
+                //1.Response XML for OK :: 60000 (Successful)
+                String responseXML = "<RESPONSE><PAYMENTS><PaymentNumber>" + eSlipNumber + "</PaymentNumber><ResponseCode>OK</ResponseCode><Status>60000</Status><Message>SUCCESSFULLY RECEIVED THE PAYMENT INFORMATION</Message></PAYMENTS></RESPONSE>";
+                //2.Response XML for NOK :: 60001 (Empty Message)
+                //String responseXML = "<RESPONSE><PAYMENTS><PaymentNumber>"+eSlipNumber+"</PaymentNumber><ResponseCode>NOK</ResponseCode><Status>60001</Status><Message>EMPTY MESSAGE</Message></PAYMENTS></RESPONSE>";
+                //3.Response XML for NOK :: 60002 (Invalid Message)
+                //String responseXML = "<RESPONSE><PAYMENTS><PaymentNumber>"+eSlipNumber+"</PaymentNumber><ResponseCode>NOK</ResponseCode><Status>60002</Status><Message>Invalid Message or incoherent – Parsing: <<Error ID in iTAX>></Message></PAYMENTS></RESPONSE>";
+                //4.Response XML for NOK :: 60003 (This Payment Reference is already there in Payment Gateway)
+                //String responseXML = "<RESPONSE><PAYMENTS><PaymentNumber>"+eSlipNumber+"</PaymentNumber><ResponseCode>NOK</ResponseCode><Status>60003</Status><Message>THE PAYMENT FOR REQUESTED PRN HAS ALREADY BEEN PROCESSED</Message></PAYMENTS></RESPONSE>";
+                //5.Response XML for NOK :: 60004 (Invalid Data)
+                //String responseXML = "<RESPONSE><PAYMENTS><PaymentNumber>"+eSlipNumber+"</PaymentNumber><ResponseCode>NOK</ResponseCode><Status>60004</Status><Message>INVALID DATA</Message></PAYMENTS></RESPONSE>";
+                //6.Response XML for NOK :: 60005 (Inconsistency with the Amount)
+                //String responseXML = "<RESPONSE><PAYMENTS><PaymentNumber>"+eSlipNumber+"</PaymentNumber><ResponseCode>NOK</ResponseCode><Status>60005</Status><Message>INCONSISTENCY WITH THE AMOUNT</Message></PAYMENTS></RESPONSE>";
+                //7.Response XML for NOK :: 60006 (E Slip Unknown.)
+                //String responseXML = "<RESPONSE><PAYMENTS><PaymentNumber>"+eSlipNumber+"</PaymentNumber><ResponseCode>NOK</ResponseCode><Status>60006</Status><Message>E-SLIP IS UNKNOWN</Message></PAYMENTS></RESPONSE>";
+                //8.Response XML for NOK :: 60007 (Other Errors: <<Error ID in iTAX>>)
+                //String responseXML = "<RESPONSE><PAYMENTS><PaymentNumber>"+eSlipNumber+"</PaymentNumber><ResponseCode>NOK</ResponseCode><Status>60007</Status><Message>OTHER ERRORS</Message></PAYMENTS></RESPONSE>";
+                //9.Response XML for NOK :: 60009 (Expired)
+                //String responseXML = "<RESPONSE><PAYMENTS><PaymentNumber>"+eSlipNumber+"</PaymentNumber><ResponseCode>NOK</ResponseCode><Status>60009</Status><Message>THE REQUESTED PRN IS EXPIRED. REQUEST YOU TO PLEASE ASK TAXPAYER TO REGISTER THE PAYMENT AGAIN ON SYSTEM</Message></PAYMENTS></RESPONSE>";
                 System.out.println("Response XML :: " + responseXML);
                 //Unmarshall the response XML String
                 if (responseXML != null) {
@@ -754,42 +790,45 @@ public class PaymentService {
                         //----START OF DATABASE UPDATE ----\\
                         //UPDATE DETAILS IN THE DATABASE (Payment Details)
                         logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: STARTING TO SAVE PAYMENT DETAILS FOR STATUS OK :: 60000");
-
+                        String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
                         String post_status = "PR";
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
-                        if (poststat_us.trim().equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                        if (poststat_us.equalsIgnoreCase("PS")) {
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
-
+                                String d = "Y," + eSlipNumber;
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, d);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
 
                                 //Save the Receipt as a Pdf file after successful payment
                                 Numbers2Words ntw = new Numbers2Words();
-                                //--Database (Oracle DB) Connection Code --\\
                                 String c_lass = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.class")).trim();
                                 Class.forName(c_lass);
                                 String serverName = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.ip").trim());
                                 String portNumber = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.port").trim());
                                 String sid = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.database").trim());
                                 String url = "jdbc:oracle:thin:@" + serverName + ":" + portNumber + ":" + sid;
-                                String uname = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.username").trim());
-                                String pass = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.password").trim());
-
+                                String username = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.username").trim());
+                                String password = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.password").trim());
                                 String input = "";
                                 String output = folder + "receipt.pdf";
 
                                 //Queries
-                                String amnt = amount;
-                                String mop = means_of_pmnt;
+                                //Select Amount
+                                String select_amount = cn.getProperties().getProperty("sql.query.select.amount").trim();
+                                String amnt = DatabaseMethods.selectValues(select_amount, 1, 1, eSlipNumber);
+                                //Select Means of Payment
+                                String select_mop = cn.getProperties().getProperty("sql.query.select.meansofpayment").trim();
+                                String mop = DatabaseMethods.selectValues(select_mop, 1, 1, eSlipNumber);
+
                                 //Check the means of Payment
                                 if (mop.equalsIgnoreCase("1")) {
                                     mop = "Cash";
@@ -805,10 +844,10 @@ public class PaymentService {
                                 }
                                 String resp_onse = "";
                                 //Check if amount is 0
-                                if (!amnt.equalsIgnoreCase("0") && !amnt.equalsIgnoreCase("")) {
+                                if (!amount.equalsIgnoreCase("0") && !amount.equalsIgnoreCase("")) {
                                     String word = null;
                                     word = ntw.EnglishNumber(Long.parseLong(amount));
-                                    Connection con = DriverManager.getConnection(url, uname, pass);
+                                    Connection con = DriverManager.getConnection(url, username, password);
                                     JasperReport jasperReport
                                             = (JasperReport) JRLoader.loadObjectFromFile(input);
                                     Map parameters = new HashMap();
@@ -880,7 +919,7 @@ public class PaymentService {
                         //----START OF DATABASE UPDATE ----\\
                         //UPDATE DETAILS IN THE DATABASE (Payment Details)
                         logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: STARTING TO SAVE PAYMENT DETAILS FOR STATUS NOK :: 60002");
-
+                        String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
                         String post_status = "PR";
                         String r_code = responseStatus;
                         String r_status = responsecode;
@@ -912,7 +951,7 @@ public class PaymentService {
                         //----START OF DATABASE UPDATE ----\\
                         //UPDATE DETAILS IN THE DATABASE (Payment Details)
                         logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: STARTING TO SAVE PAYMENT DETAILS FOR STATUS NOK :: 60003");
-
+                        String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
                         String post_status = "PR";
                         String r_code = responseStatus;
                         String r_status = responsecode;
@@ -943,7 +982,7 @@ public class PaymentService {
                         //----START OF DATABASE UPDATE ----\\
                         //UPDATE DETAILS IN THE DATABASE (Payment Details)
                         logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: STARTING TO SAVE PAYMENT DETAILS FOR STATUS NOK :: 60004");
-
+                        String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
                         String post_status = "PR";
                         String r_code = responseStatus;
                         String r_status = responsecode;
@@ -975,7 +1014,7 @@ public class PaymentService {
                         //----START OF DATABASE UPDATE ----\\
                         //UPDATE DETAILS IN THE DATABASE (Payment Details)
                         logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: STARTING TO SAVE PAYMENT DETAILS FOR STATUS NOK :: 60005");
-
+                        String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
                         String post_status = "PR";
                         String r_code = responseStatus;
                         String r_status = responsecode;
@@ -988,6 +1027,7 @@ public class PaymentService {
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
+
                                 //Update Status of An E-Slip in the E-Slip data table
                                 int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
@@ -1005,7 +1045,7 @@ public class PaymentService {
                         //----START OF DATABASE UPDATE ----\\
                         //UPDATE DETAILS IN THE DATABASE (Payment Details)
                         logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: STARTING TO SAVE PAYMENT DETAILS FOR STATUS NOK :: 60006");
-
+                        String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
                         String post_status = "PR";
                         String r_code = responseStatus;
                         String r_status = responsecode;
@@ -1036,7 +1076,7 @@ public class PaymentService {
                         //----START OF DATABASE UPDATE ----\\
                         //UPDATE DETAILS IN THE DATABASE (Payment Details)
                         logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: STARTING TO SAVE PAYMENT DETAILS FOR STATUS NOK :: 60007");
-
+                        String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
                         String post_status = "PR";
                         String r_code = responseStatus;
                         String r_status = responsecode;
@@ -1068,7 +1108,7 @@ public class PaymentService {
                         //----START OF DATABASE UPDATE ----\\
                         //UPDATE DETAILS IN THE DATABASE (Payment Details)
                         logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: STARTING TO SAVE PAYMENT DETAILS FOR STATUS NOK :: 60009");
-
+                        String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
                         String post_status = "PR";
                         String r_code = responseStatus;
                         String r_status = responsecode;
@@ -1097,162 +1137,43 @@ public class PaymentService {
         return response;
     }
 
-    //3.Print a receipt (Tax Receipt)
-    //Save the Receipt as a Pdf file after successful payment
-    @WebMethod
-    @WebResult(name = "response", targetNamespace = "")
-    @RequestWrapper(localName = "PrintReceipt", targetNamespace = "")
-    @ResponseWrapper(localName = "PrintResponse", targetNamespace = "")
-    public ReceiptResponse printReceipt(
-            @WebParam(name = "eslipNumber", targetNamespace = "") String eSlipNumber) throws IOException, JAXBException, ClassNotFoundException, JRException, SQLException
-        {
-            Numbers2Words ntw = new Numbers2Words();
-            String c_lass = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.class")).trim();
-            Class.forName(c_lass);
-            String serverName = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.ip").trim());
-            String portNumber = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.port").trim());
-            String sid = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.database").trim());
-            String url = "jdbc:oracle:thin:@" + serverName + ":" + portNumber + ":" + sid;
-            String uname = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.username").trim());
-            String pass = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.password").trim());
-            String input = "";
-            String output = folder + "receipt.pdf";
 
-            //Queries
-            //Select Amount
-            String select_amount = cn.getProperties().getProperty("sql.query.select.amount").trim();
-            String amnt = DatabaseMethods.selectValues(select_amount, 1, 1, eSlipNumber);
-            //Select Means of Payment
-            String select_mop = cn.getProperties().getProperty("sql.query.select.meansofpayment").trim();
-            String mop = DatabaseMethods.selectValues(select_mop, 1, 1, eSlipNumber);
-
-            //Check the means of Payment
-            if (mop.equalsIgnoreCase("1")) {
-                mop = "Cash";
-                input = folder + "receipt.jasper";
-            }
-            if (mop.equalsIgnoreCase("2")) {
-                mop = "Cheque";
-                input = folder + "cheque.jasper";
-            }
-            if (mop.equalsIgnoreCase("3")) {
-                mop = "Both (Cheque and Cash)";
-                input = folder + "cheque.jasper";
-            }
-            String resp_onse = "";
-            //Instance of the Receipt Response Class
-            ReceiptResponse response = new ReceiptResponse();
-            //Check if amount is 0
-            if (!amnt.equalsIgnoreCase("0") && !amnt.equalsIgnoreCase("")) {
-                String word = null;
-                word = ntw.EnglishNumber(Long.parseLong(amnt));
-                Connection con = DriverManager.getConnection(url, uname, pass);
-                JasperReport jasperReport
-                        = (JasperReport) JRLoader.loadObjectFromFile(input);
-                Map parameters = new HashMap();
-                parameters.put("prn", eSlipNumber);
-                parameters.put("words", word);
-                parameters.put("mop", mop);
-                // Fill the Jasper Report
-                JasperPrint jasperPrint
-                        = JasperFillManager.fillReport(jasperReport, parameters, con);
-                // Creation of the Pdf Jasper Reports
-                Path path = Paths.get(folder, "receipt.pdf");
-                // Creation of the Pdf Jasper Reports
-                File f = new File(output.trim());
-                if (f.exists() && !f.isDirectory()) {
-                    output = folder + "receipt-" + eSlipNumber + ".pdf";
-                    path = Paths.get(folder, "receipt-" + eSlipNumber + ".pdf");
-                }
-                JasperExportManager.exportReportToPdfFile(jasperPrint, output);
-                Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rwxrwxrwx"));
-                resp_onse = "TAX RECEIPT :: SAVE RECEIPT :: DONE :: RECEIPT NAME :: " + output + " :: RESPONSE :: Successful!";
-                response.setResponse(resp_onse);
-                logger.info("TAX RECEIPT :: SAVE RECEIPT :: DONE :: RECEIPT NAME :: " + output + " :: RESPONSE :: Successful!");
-            } else {
-                resp_onse = "TAX RECEIPT :: SAVE RECEIPT :: FAILED :: RESPONSE :: Failed because amount is Ksh.0";
-                response.setResponse(resp_onse);
-                logger.info("TAX RECEIPT :: SAVE RECEIPT :: FAILED :: RESPONSE :: Failed because amount is Ksh.0");
-            }
-        return response;
-    }
-
-    //Delete a PRN (E-Slip Number)
-    //Web Method for deleting a PRN whenever a customer request
-    @WebMethod
-    @WebResult(name = "response", targetNamespace = "")
-    @RequestWrapper(localName = "DeletePRN", targetNamespace = "")
-    @ResponseWrapper(localName = "DeleteResponse", targetNamespace = "")
-    public DeletePRNResponse deletePRN(
-            @WebParam(name = "eslipNumber", targetNamespace = "") String eSlipNumber){
-        //Update Delete Flag in E-Slip Data Table to 'Y'
-        String query = cn.getProperties().getProperty("sql.query.prn.delete.update.flag").trim();
-        //----START OF PRN DELETION (UPDATE DELETE FLAG) ---\\
-        //Instance of Delete PRN Number Response class
-        DeletePRNResponse response = new DeletePRNResponse();
-        int update = 0;
-        //Checking if a payment has already been posted for this e-slip
-        //E-Slip status
-        String selectstatus = cn.getProperties().getProperty("sql.query.select.eslipstatus").trim();
-        //delete flag
-        String selectflag = cn.getProperties().getProperty("sql.query.select.deleteflag").trim();
-        String eslipstatus = DatabaseMethods.selectValues(selectstatus, 1, 1, eSlipNumber);
-        String deleteflag = DatabaseMethods.selectValues(selectflag, 1, 1, eSlipNumber);
-        System.out.println("Flag :: " +deleteflag);
-        String data = "Y,"+eSlipNumber;
-        if (eslipstatus.equalsIgnoreCase("N")) {
-            if(deleteflag.equalsIgnoreCase("N")) {
-                update = DatabaseMethods.DB(query, 2, data);
-                if (update == 1) {
-                    logger.info("DELETE PRN :: DONE DELETING E-SLIP :: RESULT :: " + update);
-                    response.setResponse("DELETE PRN :: SUCCESSFULLY DELETED E-SLIP (PRN)");
+    public DeletePRNResponse deletePRN(String eSlipNumber){
+            //Update Delete Flag in E-Slip Data Table to 'Y'
+            String query = cn.getProperties().getProperty("sql.query.prn.delete.update.flag").trim();
+            //----START OF PRN DELETION (UPDATE DELETE FLAG) ---\\
+            //Instance of Delete PRN Number Response class
+            DeletePRNResponse response = new DeletePRNResponse();
+            int update = 0;
+            //Checking if a payment has already been posted for this e-slip
+            //E-Slip status
+            String selectstatus = cn.getProperties().getProperty("sql.query.select.eslipstatus").trim();
+            //delete flag
+            String selectflag = cn.getProperties().getProperty("sql.query.select.deleteflag").trim();
+            String eslipstatus = DatabaseMethods.selectValues(selectstatus, 1, 1, eSlipNumber);
+            String deleteflag = DatabaseMethods.selectValues(selectflag, 1, 1, eSlipNumber);
+            System.out.println("Flag :: " + deleteflag);
+            String data = "Y," + eSlipNumber;
+            if (eslipstatus.equalsIgnoreCase("N")) {
+                if (deleteflag.equalsIgnoreCase("N")) {
+                    update = DatabaseMethods.DB(query, 2, data);
+                    if (update == 1) {
+                        logger.info("DELETE PRN :: DONE DELETING E-SLIP :: RESULT :: " + update);
+                        response.setResponse("DELETE PRN :: SUCCESSFULLY DELETED E-SLIP (PRN)");
+                    } else {
+                        logger.info("DELETE PRN :: FAILED TO DELETE PRN :: RESULT :: " + update);
+                        response.setResponse("DELETE PRN :: FAILED TO DELETE AN E-SLIP (PRN)");
+                    }
                 } else {
-                    logger.info("DELETE PRN :: FAILED TO DELETE PRN :: RESULT :: " + update);
-                    response.setResponse("DELETE PRN :: FAILED TO DELETE AN E-SLIP (PRN)");
+                    logger.info("DELETE PRN :: FAILED TO DELETE AN E-SLIP (PRN) :: THIS PRN WAS ALREADY DELETED :: " + update);
+                    response.setResponse("DELETE PRN :: FAILED TO DELETE AN E-SLIP (PRN) :: THIS PRN WAS ALREADY DELETED");
                 }
+            } else {
+                logger.info("DELETE PRN :: PAYMENT WAS ALREADY POSTED FOR THIS E-SLIP :: IT CANNOT BE DELETED");
+                response.setResponse("DELETE PRN :: PAYMENT WAS ALREADY POSTED FOR THIS E-SLIP :: IT CANNOT BE DELETED");
             }
-            else
-            {
-                logger.info("DELETE PRN :: FAILED TO DELETE AN E-SLIP (PRN) :: THIS PRN WAS ALREADY DELETED :: " + update);
-                response.setResponse("DELETE PRN :: FAILED TO DELETE AN E-SLIP (PRN) :: THIS PRN WAS ALREADY DELETED");
-            }
-        } else {
-            logger.info("DELETE PRN :: PAYMENT WAS ALREADY POSTED FOR THIS E-SLIP :: IT CANNOT BE DELETED");
-            response.setResponse("DELETE PRN :: PAYMENT WAS ALREADY POSTED FOR THIS E-SLIP :: IT CANNOT BE DELETED");
-        }
         //----END OF DATABASE UPDATE ----\\
         return response;
     }
 
-
-    //Check PRN (E-SLIP) Details before deleting a PRN
-    @WebMethod
-    @WebResult(name = "details", targetNamespace = "")
-    @RequestWrapper(localName = "CheckPRNDetails", targetNamespace = "")
-    @ResponseWrapper(localName = "PRNDetailsResponse", targetNamespace = "")
-    public EslipDetailsResponse checkPRNDetails(
-            @WebParam(name = "eslipNumber", targetNamespace = "") String eSlipNumber){
-        //Queries
-        //Select details
-        String query = cn.getProperties().getProperty("sql.query.select.eslipdata.before.delete").trim();
-        String details = DatabaseMethods.selectValues(query, 9, 1, eSlipNumber);
-        //Instance of the Check PRN Number Response class
-        EslipDetailsResponse response = new EslipDetailsResponse();
-        if(!details.equalsIgnoreCase(""))
-        {
-            String[] data =details.split(",");
-            //System.out.println(Arrays.toString(data));
-            response.setEslipnumber(data[0]);
-            response.setTaxpayername(data[1]);
-            response.setTaxpayerpin(data[2]);
-            response.setAmount(data[3]);
-            response.setStatus(data[4]);
-            response.setRemarks(data[5]);
-            response.setPaymentadvicedate(data[6]);
-            response.setTaxcomponent(data[7]);
-            response.setTaxcode(data[8]);
-        }
-        logger.info(response.toString());
-        return response;
-    }
 }
