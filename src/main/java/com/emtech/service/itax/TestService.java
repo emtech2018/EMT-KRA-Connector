@@ -1137,7 +1137,7 @@ public class TestService {
         return response;
     }
 
-
+    //Delete PRN
     public DeletePRNResponse deletePRN(String eSlipNumber){
             //Update Delete Flag in E-Slip Data Table to 'Y'
             String query = cn.getProperties().getProperty("sql.query.prn.delete.update.flag").trim();

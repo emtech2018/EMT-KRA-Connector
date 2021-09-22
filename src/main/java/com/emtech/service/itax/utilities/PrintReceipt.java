@@ -1,60 +1,122 @@
 package com.emtech.service.itax.utilities;
-
-import javax.print.*;
-import javax.print.attribute.HashPrintRequestAttributeSet;
-import javax.swing.*;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.util.Arrays;
+import javax.print.Doc;
+import javax.print.DocFlavor;
+import javax.print.DocPrintJob;
+import javax.print.PrintException;
+import javax.print.PrintService;
+import javax.print.PrintServiceLookup;
+import javax.print.SimpleDoc;
+import javax.print.attribute.HashPrintRequestAttributeSet;
+import javax.print.attribute.PrintRequestAttributeSet;
+import javax.print.attribute.standard.Copies;
+import javax.print.attribute.standard.Finishings;
+import javax.print.attribute.standard.MediaSizeName;
+import javax.print.attribute.standard.NumberUp;
+import javax.print.attribute.standard.OrientationRequested;
+import javax.print.attribute.standard.Sides;
+import javax.print.event.PrintJobAdapter;
+import javax.print.event.PrintJobEvent;
 
-public class PrintReceipt {
-
-    public void printReceipt(String paramString1, String paramString2) throws Exception {
-        System.out.println("Entry : printReceipt");
-        FileInputStream fileInputStream = null;
-        String str1 = null;
-        str1 = paramString1;
-        String str2 = paramString2 + ".txt";
-        JOptionPane.showMessageDialog(null, str2);
-        JOptionPane.showMessageDialog(null, "printer : " + paramString1);
+public class PrintReceipt
+{
+    public void printNow(String receiptname) {
+        // TODO Auto-generated method stub
+        //String fileName = "C:/Users/Omukubwa/Documents/goal.pdf";
+        // Open the file
+        InputStream in = null;
         try {
-            fileInputStream = new FileInputStream(new String(str2));
-        } catch (FileNotFoundException fileNotFoundException) {
-            fileNotFoundException.printStackTrace();
-            JOptionPane.showMessageDialog(null, fileNotFoundException.getMessage());
+            in = new FileInputStream(receiptname);
+        } catch (FileNotFoundException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
         }
-        if (fileInputStream == null)
-            return;
-        JOptionPane.showMessageDialog(null, "preping print job");
-        PrintService printService = null;
-        DocFlavor.INPUT_STREAM iNPUT_STREAM = DocFlavor.INPUT_STREAM.AUTOSENSE;
-        SimpleDoc simpleDoc = new SimpleDoc(fileInputStream, iNPUT_STREAM, null);
-        HashPrintRequestAttributeSet hashPrintRequestAttributeSet = new HashPrintRequestAttributeSet();
-        PrintService[] arrayOfPrintService = PrintServiceLookup.lookupPrintServices(iNPUT_STREAM, hashPrintRequestAttributeSet);
-        for (byte b = 0; b < arrayOfPrintService.length; b++) {
-            String str = arrayOfPrintService[b].toString();
-            if (str.contains(str1)) {
-                printService = arrayOfPrintService[b];
-                JOptionPane.showMessageDialog(null, "### PRINTER FOUND ### Printer Name is:: " + str);
-                break;
-            }
-        }
-        if (printService != null) {
-            DocPrintJob docPrintJob = printService.createPrintJob();
+
+        // Figure out what type of file we're printing
+        DocFlavor myFormat = getFlavorFromFilename(receiptname);
+        System.out.println("Document Flavour :\n"+getFlavorFromFilename(receiptname));
+        // Create a Doc
+        Doc myDoc = new SimpleDoc(in, myFormat, null);
+        // Build a set of attributes
+        PrintRequestAttributeSet aset = new HashPrintRequestAttributeSet();
+        aset.add(OrientationRequested.PORTRAIT);
+        aset.add(new Copies(1));
+        aset.add(Sides.ONE_SIDED);
+        aset.add(MediaSizeName.INVOICE);
+        aset.add(new NumberUp(2));
+        aset.add(Finishings.STAPLE);
+        // discover the printers that can print the format according to the
+        // instructions in the attribute set
+        PrintService[] services = PrintServiceLookup.lookupPrintServices(null,null);
+        System.out.println(Arrays.toString(services));
+
+        // Create a print job from one of the print services
+        if (services.length > 0) {
+            System.out.println("The print sent to>>>" + services[1].getName());
+            //DocPrintJob job = services[0].createPrintJob();
+            DocPrintJob job = services[1].createPrintJob();
+
+            // Monitor the print job with a listener
+            job.addPrintJobListener(new PrintJobAdapter() {
+                public void printDataTransferCompleted(PrintJobEvent e) {
+                    System.out.println("Data transfer completed!");
+                }
+
+                public void printJobNoMoreEvents(PrintJobEvent e) {
+                    System.out.println("No more events!");
+                }
+
+                public void printJobRequiresAttention(PrintJobEvent e) {
+                    System.out.println("Requires Attention!");
+                }
+
+                public void printJobFailed(PrintJobEvent e) {
+                    System.out.println("Print Job Failed!");
+                }
+
+                public void printJobCompleted(PrintJobEvent e) {
+                    System.out.println("Print Job Completed!");
+                }
+
+                public void printJobCanceled(PrintJobEvent e) {
+                    System.out.println("Print Job Cancelled!");
+                }
+            });
+            /*
             try {
-                docPrintJob.print(simpleDoc, hashPrintRequestAttributeSet);
-                System.out.println("Printing was successful");
-                JOptionPane.showMessageDialog(null, "Printing was successful");
-            } catch (Exception exception) {
-                System.out.println("Error in:: Printing Receipt");
-                JOptionPane.showMessageDialog(null, "Error in:: Printing Receipt");
-                exception.printStackTrace();
-                System.out.println("Printing was not successful");
-                JOptionPane.showMessageDialog(null, "Error in:: Printing Receipt");
+                //job.print(myDoc, aset);
+            } catch (PrintException pe) {
+                pe.printStackTrace();
             }
-        } else {
-            System.out.println("NO PRINTER SERVICE FOUND");
-            JOptionPane.showMessageDialog(null, "Error in:: Printing Receipt");
+             */
+            System.out.println("The print job ........");
         }
-        System.out.println("Exit : printReceipt");
+    }
+
+    // A utility method to return a DocFlavor object matching the
+    // extension of the filename.
+    public static DocFlavor getFlavorFromFilename(String filename) {
+        String extension = filename.substring(filename.lastIndexOf('.') + 1);
+        extension = extension.toLowerCase();
+        if (extension.equals("gif"))
+            return DocFlavor.INPUT_STREAM.GIF;
+        else if (extension.equals("jpeg"))
+            return DocFlavor.INPUT_STREAM.JPEG;
+        else if (extension.equals("jpg"))
+            return DocFlavor.INPUT_STREAM.JPEG;
+        else if (extension.equals("png"))
+            return DocFlavor.INPUT_STREAM.PNG;
+        else if (extension.equals("pdf"))
+            return DocFlavor.INPUT_STREAM.PDF;
+        else if (extension.equals("ps"))
+            return DocFlavor.INPUT_STREAM.POSTSCRIPT;
+        else if (extension.equals("txt"))
+            return DocFlavor.INPUT_STREAM.TEXT_PLAIN_UTF_8;
+            // Fallback: try to determine flavor from file content
+        else
+            return DocFlavor.INPUT_STREAM.AUTOSENSE;
     }
 }

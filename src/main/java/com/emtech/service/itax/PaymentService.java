@@ -433,31 +433,6 @@ public class PaymentService {
                                           @WebParam(name = "account", targetNamespace = "") String account) throws IOException, JAXBException, ClassNotFoundException, SQLException, JRException {
         System.out.println("E-Slip Number : " + eSlipNumber);
         String ccrspayment = "";
-        //Queries
-        //Select details from e-slip data table
-        //Array with all data selected from the eslip data table
-        String[] eslipdata = null;
-        String query = cn.getProperties().getProperty("sql.query.select.eslipdetails").trim();
-        String eslipdetails = DatabaseMethods.selectValues(query, 8, 1, eSlipNumber);
-        if(!eslipdetails.equalsIgnoreCase("")) {
-            eslipdata= eslipdetails.split(",");
-        }
-
-        //Select Payment Details from payment table
-        //Array with all data selected from payment details table
-        String[] paymentdata =null;
-        String selectquery = cn.getProperties().getProperty("sql.query.select.paymentdetails").trim();
-        String pay_details = DatabaseMethods.selectValues(selectquery, 2, 1, eSlipNumber);
-        if(!pay_details.equalsIgnoreCase("")) {
-            paymentdata= pay_details.split(",");
-        }
-        //Decrypt Credentials
-        String password = Encryptor.decrypt(key, initVector, PASSWORD);
-        String username = Encryptor.decrypt(key, initVector, LOGINID);
-
-        //Time Stamp
-        String timestamp = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date());
-
         //More Variables
         String amount = "";
         String eslip_status = "";
@@ -470,7 +445,14 @@ public class PaymentService {
         String poststat_us = "";
         String means_of_pmnt = "";
 
-        if(eslipdata.length>0) {
+        //Queries
+        //Select details from e-slip data table
+        //Array with all data selected from the eslip data table
+        String[] eslipdata = null;
+        String query = cn.getProperties().getProperty("sql.query.select.eslipdetails").trim();
+        String eslipdetails = DatabaseMethods.selectValues(query, 8, 1, eSlipNumber);
+        if(!eslipdetails.equalsIgnoreCase("")) {
+            eslipdata= eslipdetails.split(",");
             amount = eslipdata[0];
             eslip_status = eslipdata[1];
             payment_code = eslipdata[2];
@@ -481,11 +463,24 @@ public class PaymentService {
             doc_refnumber = eslipdata[7];
         }
 
-        if(paymentdata.length >0)
-        {
+        //Select Payment Details from payment table
+        //Array with all data selected from payment details table
+        String[] paymentdata =null;
+        String selectquery = cn.getProperties().getProperty("sql.query.select.paymentdetails").trim();
+        String pay_details = DatabaseMethods.selectValues(selectquery, 2, 1, eSlipNumber);
+        if(!pay_details.equalsIgnoreCase("")) {
+            paymentdata= pay_details.split(",");
             poststat_us = paymentdata[0];
             means_of_pmnt = paymentdata[1];
         }
+
+        //Decrypt Credentials
+        String password = Encryptor.decrypt(key, initVector, PASSWORD);
+        String username = Encryptor.decrypt(key, initVector, LOGINID);
+
+        //Time Stamp
+        String timestamp = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date());
+
 
         //Random number for teller id
         Random r = new Random();
@@ -745,6 +740,9 @@ public class PaymentService {
 
                     logger.info("POST PAYMENT :: STATUS :: " + responseStatus + " :: CODE :: " + responsecode + " :: MESSAGE :: " + message);
 
+                    //Variable holding data used to Update e-slip-status to Y after posting payment
+                    String eslipstatus_data = "Y,"+eSlipNumber;
+
                     //Check Response Codes and the Status
                     //1. OK and Response Code 60000(Successfully Received the Payment information)
                     if (responsecode.equalsIgnoreCase("OK") && responseStatus.equalsIgnoreCase("60000")) {
@@ -759,17 +757,17 @@ public class PaymentService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.trim().equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
 
                                 //Save the Receipt as a Pdf file after successful payment
@@ -853,17 +851,17 @@ public class PaymentService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -885,17 +883,17 @@ public class PaymentService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -917,17 +915,17 @@ public class PaymentService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -948,17 +946,17 @@ public class PaymentService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -980,16 +978,16 @@ public class PaymentService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -1010,17 +1008,17 @@ public class PaymentService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -1041,17 +1039,17 @@ public class PaymentService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -1073,17 +1071,17 @@ public class PaymentService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {

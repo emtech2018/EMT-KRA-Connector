@@ -45,13 +45,13 @@ public class PaymentController {
     //Consulting the E-Slip end point
     @RequestMapping("/consult/{prn}")
     public CheckEslipResponse checkEslip(@PathVariable("prn") String prn) throws Exception {
-        return tservice.consultEslip(prn);
+        return service.consultEslip(prn);
     }
 
     //Posting Tax Payment end point
     @RequestMapping("/pay/{prn}/{mop}/{cno}/{account}")
     public PaymentResponse payTaxCash(@PathVariable("prn") String prn, @PathVariable("mop") String mop, @PathVariable("cno") String cno,@PathVariable("account") String account) throws IOException, JAXBException, JRException, SQLException, ClassNotFoundException {
-        return tservice.postTaxPayment(prn,mop,cno,account);
+        return service.postTaxPayment(prn,mop,cno,account);
     }
 
     //Print Receipt End-Point
@@ -115,6 +115,9 @@ public class PaymentController {
                 path = Paths.get(folder, "receipt-" + prn + ".pdf");
             }
             JasperExportManager.exportReportToPdfFile(jasperPrint, output);
+            //Send to Printer
+            PrintReceipt pr = new PrintReceipt();
+            pr.printNow(output);
             Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rwxrwxrwx"));
             response = "Successful!";
             System.out.println("POST PAYMENT :: SAVE RECEIPT :: DONE :: RECEIPT NAME :: "+output+ " :: RESPONSE :: "+response);
@@ -137,7 +140,6 @@ public class PaymentController {
    //Delete PRN end point
     @RequestMapping("/delete/{prn}")
     public DeletePRNResponse delete(@PathVariable("prn") String prn) {
-        return tservice.deletePRN(prn);
+        return service.deletePRN(prn);
     }
-
 }
