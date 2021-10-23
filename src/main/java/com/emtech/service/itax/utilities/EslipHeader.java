@@ -4,6 +4,8 @@ package com.emtech.service.itax.utilities;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 
+/*@author Omukubwa Emukule*/
+
 @XmlRootElement(name = "ESLIPHEADER")
 public class EslipHeader {
     private String systemCode;

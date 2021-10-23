@@ -5,6 +5,8 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlType;
 
+/*@author Omukubwa Emukule*/
+
 @XmlType(name = "", propOrder = {"systemCode", "branchCode", "bankTellerId", "bankTellerName", "paymentMode", "meansofPayment", "remitterId", "remitterName", "ESlipNumber", "slipPaymentCode", "paymentAdviceDate", "paymentReference", "taxpayerPIN", "taxpayerName", "totalAmount", "docRefNumber", "dateOfCollection", "currency", "cashAmount", "chequeAmount"})
 @XmlRootElement(name = "PAYMENTHEADER")
 public class PaymentHeader {

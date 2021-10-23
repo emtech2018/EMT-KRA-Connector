@@ -7,6 +7,8 @@ import org.springframework.boot.web.servlet.support.SpringBootServletInitializer
 
 import javax.xml.ws.Endpoint;
 
+/*@author Omukubwa Emukule*/
+
 @SpringBootApplication
 public class ServiceApplication extends SpringBootServletInitializer {
 

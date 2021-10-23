@@ -16,7 +16,7 @@ import org.json.XML;
 
 /**
  *
- * @author emukule
+ * @author omukubwa emukule
  */
 public class CommonUtils {
     //Convert XML to JSON

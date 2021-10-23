@@ -5,6 +5,8 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlType;
 
+/*@author Omukubwa Emukule*/
+
 @XmlRootElement(name = "PAYMENTCHEQUE")
 @XmlType(name = "", propOrder = {"bankOfCheque", "branchOfCheque", "chequeNumber", "chequeDate", "chequeAmount", "chequeAccount", "chequeType"})
 public class ChequeDetails {

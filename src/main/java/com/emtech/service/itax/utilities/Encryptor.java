@@ -6,6 +6,8 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+/*@author Omukubwa Emukule*/
+
 public class Encryptor {
     public static String encrypt(String key, String initVector, String value) {
         try {

@@ -4,6 +4,8 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import java.util.ArrayList;
 
+/*@author Omukubwa Emukule*/
+
 @XmlRootElement(name = "RESPONSE")
 public class PostPaymentXMLToJava {
     private ArrayList<PaymentResponse> RESPONSE;

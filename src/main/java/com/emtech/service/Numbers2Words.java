@@ -1,10 +1,8 @@
 package com.emtech.service;
 
-import java.util.Scanner;
-
 /**
  *
- * @author emukule
+ * @author omukubwa emukule
  */
 public class Numbers2Words {
 

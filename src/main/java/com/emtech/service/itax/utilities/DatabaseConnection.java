@@ -4,6 +4,8 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
+/*@author Omukubwa Emukule*/
+
 //Handles all Connections to the Database
 //MySQL and Oracle.
 public class DatabaseConnection {

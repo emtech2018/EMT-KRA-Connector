@@ -3,6 +3,8 @@ package com.emtech.service.itax.utilities;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 
+/*@author Omukubwa Emukule*/
+
 @XmlRootElement(name = "PAYMENTS")
 public class PaymentResponse {
     private String PaymentNumber;

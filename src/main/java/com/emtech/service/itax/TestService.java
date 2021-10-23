@@ -1,13 +1,17 @@
 package com.emtech.service.itax;
 
-//Class that will handle all requests and giving responses without the need for hitting KRA
+//Class that will handle all requests and giving responses without the need for hitting KRA UAT end-point
 //It will be giving responses for consulting and posting of payment
 
 import com.emtech.service.Numbers2Words;
 import com.emtech.service.itax.tcs.kra.pg.facade.impl.CheckEslipResponse;
 import com.emtech.service.itax.utilities.*;
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.SftpException;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.util.JRLoader;
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -16,10 +20,7 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
-import java.io.File;
-import java.io.IOException;
-import java.io.StringReader;
-import java.io.StringWriter;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -49,7 +50,11 @@ public class TestService {
     //Remitter Id
     private String REMiTTERID = cn.getProperties().getProperty("itax.remitterid");
     //Remitter Name
-    private String REMITTERNAME = cn.getProperties().getProperty("itax.remittername");
+    //private String REMITTERNAME = cn.getProperties().getProperty("itax.remittername");
+
+    //Remitter Name
+    private String REMITTERNAME = UUID.randomUUID().toString();
+
     //Teller Name
     private String tellername = cn.getProperties().getProperty("itax.tellername");
     //Bank Branch
@@ -57,34 +62,40 @@ public class TestService {
     //Encryption Key
     private String key = cn.getProperties().getProperty("enc.key");
     //Encryption Init Vector
-    private String initVector =  cn.getProperties().getProperty("enc.initVector");
+    private String initVector = cn.getProperties().getProperty("enc.initVector");
+    //Instance of numbers (amount) to words class
+    Numbers2Words ntw = new Numbers2Words();
+    //Receipts Folder
+    String folder = cn.getProperties().getProperty("itax.folder").trim();
     //Database Connection Class
     DatabaseMethods db = new DatabaseMethods();
+
     //Common Utilities Class
     CommonUtils cu = new CommonUtils();
+
+    //Instance of SFTP class
+    sftp ftp = new sftp();
+
     //LOGGING
-    private static final Logger logger= LoggerFactory.getLogger(PaymentService.class);
+    private static final Logger logger = LoggerFactory.getLogger(PaymentService.class);
     //Random Number (Trace No)
     int min = 10000;
     int max = 999999;
     Random rn = new Random();
     int traceno = rn.nextInt(max - min + 1) + min;
-    //Receipts Folder
-    String folder = cn.getProperties().getProperty("itax.folder");
 
     //For testing the configuration file
-    public String test()
-    {
+    public String test() {
         String a1 = cn.getProperties().getProperty("itax.input");
         String a2 = cn.getProperties().getProperty("itax.output");
         String a3 = cn.getProperties().getProperty("itax.password");
         String a4 = cn.getProperties().getProperty("itax.username");
-        String a5 =a1+"\n"+a2+"\n"+a3+"\n"+a4;
+        String a5 = a1 + "\n" + a2 + "\n" + a3 + "\n" + a4;
         return a5;
     }
 
     //CONSULTING AN E-SLIP
-    public CheckEslipResponse consultEslip(String prn)  throws IOException, JAXBException {
+    public CheckEslipResponse consultEslip(String prn) throws IOException, JAXBException {
         String responseXML = "";
         //Update Query For status VALID
         String update_valid_query = cn.getProperties().getProperty("sql.update.valid.status");
@@ -97,7 +108,7 @@ public class TestService {
         CheckEslipResponse response = new CheckEslipResponse();
         //Disable Certificate Checking
         cu.disableVerification();
-        logger.info("STARTING CONSULTING PRN NUMBER "+ prn);
+        logger.info("STARTING CONSULTING PRN NUMBER " + prn);
         //----START OF DATABASE INSERT ----\\
         //SAVE DETAILS TO BE SENT TO KRA FOR CONSULTING IN THE DATABASE
         logger.info("CONSULT E-SLIP :: SAVE DATA TO BE SENT TO DB :: STARTING TO SAVE E-SLIP DATA");
@@ -107,8 +118,7 @@ public class TestService {
         String selectflag = cn.getProperties().getProperty("sql.query.select.deleteflag").trim();
         String deleteflag = DatabaseMethods.selectValues(selectflag, 1, 1, prn);
         //Checking if a PRN has been deleted (Delete Flag = Y)
-        if(deleteflag.equalsIgnoreCase("Y"))
-        {
+        if (deleteflag.equalsIgnoreCase("Y")) {
             logger.info("CONSULT E-SLIP :: THIS E-SLIP WAS DELETED!");
             //Customizing the response
             //Building the results array list
@@ -460,8 +470,8 @@ public class TestService {
     }
 
     //PAYMENT PROCESSING
-    public PaymentResponse postTaxPayment(String eSlipNumber,String meansOfPayment,String chequeno,String account) throws JAXBException, SQLException, JRException, ClassNotFoundException, IOException {
-        System.out.println("E-Slip Number : " + eSlipNumber);
+    public PaymentResponse postTaxPayment(String eSlipNumber, String meansOfPayment, String chequeno, String account) throws JAXBException, SQLException, JRException, ClassNotFoundException, IOException {
+        System.out.println("E-Slip Number :: " + eSlipNumber);
         String ccrspayment = "";
 
         //More Variables
@@ -475,6 +485,8 @@ public class TestService {
         String doc_refnumber = "";
         String poststat_us = "";
         String means_of_pmnt = "";
+        //Select Query (Post Status)
+        String select_query = cn.getProperties().getProperty("sql.query.select.payment.status");
 
         //Queries
         //Select details from e-slip data table
@@ -482,8 +494,8 @@ public class TestService {
         String[] eslipdata = null;
         String query = cn.getProperties().getProperty("sql.query.select.eslipdetails").trim();
         String eslipdetails = DatabaseMethods.selectValues(query, 8, 1, eSlipNumber);
-        if(!eslipdetails.equalsIgnoreCase("")) {
-            eslipdata= eslipdetails.split(",");
+        if (!eslipdetails.equalsIgnoreCase("")) {
+            eslipdata = eslipdetails.split(",");
             amount = eslipdata[0];
             eslip_status = eslipdata[1];
             payment_code = eslipdata[2];
@@ -492,19 +504,19 @@ public class TestService {
             taxpayer_fullname = eslipdata[5];
             taxpayer_pin = eslipdata[6];
             doc_refnumber = eslipdata[7];
-            System.out.println("E-Slip :: "+Arrays.toString(eslipdata));
+            System.out.println("E-Slip Data :: " + Arrays.toString(eslipdata));
         }
 
         //Select Payment Details from payment table
         //Array with all data selected from payment details table
-        String[] paymentdata =null;
+        String[] paymentdata = null;
         String selectquery = cn.getProperties().getProperty("sql.query.select.paymentdetails").trim();
         String pay_details = DatabaseMethods.selectValues(selectquery, 2, 1, eSlipNumber);
-        if(!pay_details.equalsIgnoreCase("")) {
-            paymentdata= pay_details.split(",");
-            poststat_us = paymentdata[0];
+        if (!pay_details.equalsIgnoreCase("")) {
+            paymentdata = pay_details.split(",");
+            //poststat_us = paymentdata[0];
             means_of_pmnt = paymentdata[1];
-            System.out.println("Pay :: "+Arrays.toString(paymentdata));
+            System.out.println("Payment Data :: " + Arrays.toString(paymentdata));
         }
 
         //Time Stamp
@@ -529,8 +541,7 @@ public class TestService {
         String selectflag = cn.getProperties().getProperty("sql.query.select.deleteflag").trim();
         String deleteflag = DatabaseMethods.selectValues(selectflag, 1, 1, eSlipNumber);
         //Checking if a PRN has been deleted (Delete Flag = Y)
-        if(deleteflag.equalsIgnoreCase("Y"))
-        {
+        if (deleteflag.equalsIgnoreCase("Y")) {
             logger.info("CHECKING PRN NUMBER :: THIS E-SLIP WAS DELETED!");
             //Customizing the response
             response.setMessage("CHECKING PRN NUMBER :: THIS E-SLIP WAS DELETED!");
@@ -731,12 +742,16 @@ public class TestService {
                         + "," + hashcode + "," + bankofcheque + "," + branchofcheque + "," + chequenumber + "," + chequedate + "," + chequeamount
                         + "," + chequeaccount + "," + dateofpayment + "," + poststatus + "," + response_Status + "," + response_code + "," + m_essage + "," + channelid + "," + currency;
                 //Check for duplicates
-                if (poststat_us.equalsIgnoreCase("PS")) {
+                if (DatabaseMethods.findDuplicates(select_query, 1, eSlipNumber)) {
                     System.out.println("POST PAYMENT :: SAVE DATA TO BE SENT TO DB :: CHECKING DUPLICATES :: RESULTS :: Found this e-slip number in the db");
-                } else {
+                }
+                else {
                     int insert = DatabaseMethods.DB(sendsql, 33, data);
                     logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT DATA :: RESULT :: " + insert);
                 }
+
+                //Select Post Status from payment details table
+                poststat_us = DatabaseMethods.selectValues(select_query,1,1,eSlipNumber);
                 //----END OF DATABASE INSERT ----\\
 
                 //Posting Payment
@@ -779,6 +794,9 @@ public class TestService {
                     response.setPaymentNumber(paymentnumber);
                     response.setStatus(responseStatus);
 
+                    //Variable holding data used to Update e-slip-status to Y after posting payment
+                    String eslipstatus_data = "Y," + eSlipNumber;
+
                     logger.info("POST PAYMENT :: STATUS :: " + responseStatus + " :: CODE :: " + responsecode + " :: MESSAGE :: " + message);
 
                     //Check Response Codes and the Status
@@ -800,16 +818,17 @@ public class TestService {
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
                             update = DatabaseMethods.DB(update_query, 5, savedata);
+                            System.out.println("After update ... ");
                             if (update == 1) {
+                                System.out.println("After ... ");
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
-                                String d = "Y," + eSlipNumber;
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 2, d);
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
 
+                                //START OF RECEIPT SAVING\\
                                 //Save the Receipt as a Pdf file after successful payment
-                                Numbers2Words ntw = new Numbers2Words();
                                 String c_lass = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.class")).trim();
                                 Class.forName(c_lass);
                                 String serverName = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.ip").trim());
@@ -819,60 +838,93 @@ public class TestService {
                                 String username = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.username").trim());
                                 String password = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.password").trim());
                                 String input = "";
-                                String output = folder + "receipt.pdf";
+                                String output =folder+"receipt.PDF";
 
                                 //Queries
                                 //Select Amount
                                 String select_amount = cn.getProperties().getProperty("sql.query.select.amount").trim();
-                                String amnt = DatabaseMethods.selectValues(select_amount, 1, 1, eSlipNumber);
-                                //Select Means of Payment
-                                String select_mop = cn.getProperties().getProperty("sql.query.select.meansofpayment").trim();
-                                String mop = DatabaseMethods.selectValues(select_mop, 1, 1, eSlipNumber);
+                                //Select E-Slip Status From the Database
+                                String select_status = cn.getProperties().getProperty("sql.query.select.eslipstatus").trim();
+                                String tax_amount = DatabaseMethods.selectValues(select_amount, 1, 1, eSlipNumber);
+                                String status = DatabaseMethods.selectValues(select_status, 1, 1, eSlipNumber);
+                                //Response
+                                String respon_se = "";
+                                //Check if Payment Has Been Posted for the selected PRN
+                                if(status.equalsIgnoreCase("N"))
+                                {
+                                    respon_se = "Failed! E-Slip Status is N :: Payment Not Yet Posted :: Post Payment First!";
+                                    System.out.println("PRINT RECEIPT :: FAILED :: RESPONSE :: " + response);
+                                }
+                                //Proceed Printing a receipt if payment was posted
+                                else if(status.equalsIgnoreCase("Y")) {
+                                    //Select Means of Payment
+                                    String select_mop = cn.getProperties().getProperty("sql.query.select.meansofpayment").trim();
+                                    String mop = DatabaseMethods.selectValues(select_mop, 1, 1, eSlipNumber);
 
-                                //Check the means of Payment
-                                if (mop.equalsIgnoreCase("1")) {
-                                    mop = "Cash";
-                                    input = folder + "receipt.jasper";
-                                }
-                                if (mop.equalsIgnoreCase("2")) {
-                                    mop = "Cheque";
-                                    input = folder + "cheque.jasper";
-                                }
-                                if (mop.equalsIgnoreCase("3")) {
-                                    mop = "Both (Cheque and Cash)";
-                                    input = folder + "cheque.jasper";
-                                }
-                                String resp_onse = "";
-                                //Check if amount is 0
-                                if (!amount.equalsIgnoreCase("0") && !amount.equalsIgnoreCase("")) {
-                                    String word = null;
-                                    word = ntw.EnglishNumber(Long.parseLong(amount));
-                                    Connection con = DriverManager.getConnection(url, username, password);
-                                    JasperReport jasperReport
-                                            = (JasperReport) JRLoader.loadObjectFromFile(input);
-                                    Map parameters = new HashMap();
-                                    parameters.put("prn", eSlipNumber);
-                                    parameters.put("words", word);
-                                    parameters.put("mop", mop);
-                                    // Fill the Jasper Report
-                                    JasperPrint jasperPrint
-                                            = JasperFillManager.fillReport(jasperReport, parameters, con);
-                                    // Creation of the Pdf Jasper Reports
-                                    Path path = Paths.get(folder, "receipt.pdf");
-                                    // Creation of the Pdf Jasper Reports
-                                    File f = new File(output.trim());
-                                    if (f.exists() && !f.isDirectory()) {
-                                        output = folder + "receipt-" + eSlipNumber + ".pdf";
-                                        path = Paths.get(folder, "receipt-" + eSlipNumber + ".pdf");
+                                    //Check the means of Payment
+                                    if (mop.equalsIgnoreCase("1")) {
+                                        mop = "Cash";
+                                        input = folder + "receipt.jasper";
                                     }
-                                    JasperExportManager.exportReportToPdfFile(jasperPrint, output);
-                                    Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rwxrwxrwx"));
-                                    resp_onse = "Successful!";
-                                    logger.info("POST PAYMENT :: SAVE RECEIPT :: DONE :: RECEIPT NAME :: " + output + " :: RESPONSE :: " + resp_onse);
-                                } else {
-                                    resp_onse = "Failed because amount is Ksh.0";
-                                    logger.info("POST PAYMENT :: SAVE RECEIPT :: FAILED :: RESPONSE :: " + resp_onse);
+                                    if (mop.equalsIgnoreCase("2")) {
+                                        mop = "Cheque";
+                                        input = folder + "cheque.jasper";
+                                    }
+                                    if (mop.equalsIgnoreCase("3")) {
+                                        mop = "Both (Cheque and Cash)";
+                                        input = folder + "cheque.jasper";
+                                    }
+                                    //Check if amount is 0
+                                    if (!tax_amount.equalsIgnoreCase("0") && !tax_amount.equalsIgnoreCase("")) {
+                                        String word = null;
+                                        word = ntw.EnglishNumber(Long.parseLong(tax_amount));
+                                        Connection con = DriverManager.getConnection(url, username, password);
+                                        JasperReport jasperReport
+                                                = (JasperReport) JRLoader.loadObjectFromFile(input);
+                                        Map parameters = new HashMap();
+                                        parameters.put("prn", eSlipNumber);
+                                        parameters.put("words", word);
+                                        parameters.put("mop", mop);
+                                        // Fill the Jasper Report
+                                        JasperPrint jasperPrint
+                                                = JasperFillManager.fillReport(jasperReport, parameters, con);
+                                        Path path = Paths.get(folder, "receipt.PDF");
+                                        // Creation of the Pdf Jasper Reports
+                                        File f = new File(output.trim());
+                                        if (f.exists() && !f.isDirectory()) {
+                                            output = folder + "receipt-" + eSlipNumber + ".PDF";
+                                            path = Paths.get(folder, "receipt-" + eSlipNumber + ".PDF");
+                                        }
+                                        JasperExportManager.exportReportToPdfFile(jasperPrint, output);
+                                        //Send to Printer
+                                        //PrintReceipt pr = new PrintReceipt();
+                                        //pr.printNow(output);
+                                        Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rwxrwxrwx"));
+                                        respon_se = "Successful!";
+                                        String uploadfile = "receipt-" + eSlipNumber + ".PDF";
+                                        System.out.println("PRINT RECEIPT :: DONE :: RECEIPT NAME :: " + uploadfile + " :: RESPONSE :: " + response);
+                                        System.out.println("START SENDING TO SFTP SERVER :: Filename :: "+uploadfile);
+                                        try {
+                                            ftp.uploadToRemote(uploadfile);
+                                            System.out.println("DONE SENDING TO SFTP SERVER :: Filename :: "+uploadfile);
+                                        } catch (JSchException e) {
+                                            System.out.println(e.getLocalizedMessage());
+                                        } catch (SftpException e) {
+                                            System.out.println(e.getLocalizedMessage());
+                                        }
+
+                                    } else {
+                                        respon_se = "Failed because amount is Ksh.0";
+                                        System.out.println("PRINT RECEIPT :: FAILED :: RESPONSE :: " + response);
+                                    }
                                 }
+                                //If No status is returned for the prn (not Y,N)
+                                else
+                                {
+                                    respon_se = "Failed! E-Slip Status Not Found!";
+                                    System.out.println("PRINT RECEIPT :: FAILED :: RESPONSE :: " + response);
+                                }
+                                //END OF RECEIPT SAVING\\
                             }
                         } else {
                             logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: RESPONSE FOR THIS PRN WAS ALREADY RECEIVED :: SKIPPING UPDATE TASK");
@@ -892,17 +944,17 @@ public class TestService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -924,17 +976,17 @@ public class TestService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -956,17 +1008,18 @@ public class TestService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
+                            System.out.println("after update ...");
                             if (update == 1) {
+                                System.out.println("update ...");
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
-
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -987,17 +1040,17 @@ public class TestService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -1019,17 +1072,17 @@ public class TestService {
                         String r_code = responseStatus;
                         String r_status = responsecode;
                         String msg = message;
-                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg;
+                        String savedata = "" + post_status + "," + r_code + "," + r_status + "," + msg + "," + eSlipNumber;
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -1054,13 +1107,13 @@ public class TestService {
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -1085,13 +1138,13 @@ public class TestService {
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -1117,13 +1170,13 @@ public class TestService {
                         int update = 0;
                         //Checking the Consult Status before making an update
                         if (poststat_us.equalsIgnoreCase("PS")) {
-                            update = DatabaseMethods.DB(update_query, 4, savedata);
+                            update = DatabaseMethods.DB(update_query, 5, savedata);
                             if (update == 1) {
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DATA INSERTED :: " + savedata);
                                 logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT RESULTS :: RESULT :: " + update);
 
                                 //Update Status of An E-Slip in the E-Slip data table
-                                int i = DatabaseMethods.DB(update_eslip_query, 1, "Y");
+                                int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
                             }
                         } else {
@@ -1138,42 +1191,50 @@ public class TestService {
     }
 
     //Delete PRN
-    public DeletePRNResponse deletePRN(String eSlipNumber){
-            //Update Delete Flag in E-Slip Data Table to 'Y'
-            String query = cn.getProperties().getProperty("sql.query.prn.delete.update.flag").trim();
-            //----START OF PRN DELETION (UPDATE DELETE FLAG) ---\\
-            //Instance of Delete PRN Number Response class
-            DeletePRNResponse response = new DeletePRNResponse();
-            int update = 0;
-            //Checking if a payment has already been posted for this e-slip
-            //E-Slip status
-            String selectstatus = cn.getProperties().getProperty("sql.query.select.eslipstatus").trim();
-            //delete flag
-            String selectflag = cn.getProperties().getProperty("sql.query.select.deleteflag").trim();
-            String eslipstatus = DatabaseMethods.selectValues(selectstatus, 1, 1, eSlipNumber);
-            String deleteflag = DatabaseMethods.selectValues(selectflag, 1, 1, eSlipNumber);
-            System.out.println("Flag :: " + deleteflag);
-            String data = "Y," + eSlipNumber;
-            if (eslipstatus.equalsIgnoreCase("N")) {
-                if (deleteflag.equalsIgnoreCase("N")) {
-                    update = DatabaseMethods.DB(query, 2, data);
-                    if (update == 1) {
-                        logger.info("DELETE PRN :: DONE DELETING E-SLIP :: RESULT :: " + update);
-                        response.setResponse("DELETE PRN :: SUCCESSFULLY DELETED E-SLIP (PRN)");
-                    } else {
-                        logger.info("DELETE PRN :: FAILED TO DELETE PRN :: RESULT :: " + update);
-                        response.setResponse("DELETE PRN :: FAILED TO DELETE AN E-SLIP (PRN)");
-                    }
+    public DeletePRNResponse deletePRN(String eSlipNumber) {
+        //Update Delete Flag in E-Slip Data Table to 'Y'
+        String query = cn.getProperties().getProperty("sql.query.prn.delete.update.flag").trim();
+        //----START OF PRN DELETION (UPDATE DELETE FLAG) ---\\
+        //Instance of Delete PRN Number Response class
+        DeletePRNResponse response = new DeletePRNResponse();
+        int update = 0;
+        //Checking if a payment has already been posted for this e-slip
+        //E-Slip status
+        String selectstatus = cn.getProperties().getProperty("sql.query.select.eslipstatus").trim();
+        //delete flag
+        String selectflag = cn.getProperties().getProperty("sql.query.select.deleteflag").trim();
+        String eslipstatus = DatabaseMethods.selectValues(selectstatus, 1, 1, eSlipNumber);
+        String deleteflag = DatabaseMethods.selectValues(selectflag, 1, 1, eSlipNumber);
+        System.out.println("Flag :: " + deleteflag);
+        String data = "Y," + eSlipNumber;
+        if (eslipstatus.equalsIgnoreCase("N")) {
+            if (deleteflag.equalsIgnoreCase("N")) {
+                update = DatabaseMethods.DB(query, 2, data);
+                if (update == 1) {
+                    logger.info("DELETE PRN :: DONE DELETING E-SLIP :: RESULT :: " + update);
+                    response.setResponse("DELETE PRN :: SUCCESSFULLY DELETED E-SLIP (PRN)");
                 } else {
-                    logger.info("DELETE PRN :: FAILED TO DELETE AN E-SLIP (PRN) :: THIS PRN WAS ALREADY DELETED :: " + update);
-                    response.setResponse("DELETE PRN :: FAILED TO DELETE AN E-SLIP (PRN) :: THIS PRN WAS ALREADY DELETED");
+                    logger.info("DELETE PRN :: FAILED TO DELETE PRN :: RESULT :: " + update);
+                    response.setResponse("DELETE PRN :: FAILED TO DELETE AN E-SLIP (PRN)");
                 }
             } else {
-                logger.info("DELETE PRN :: PAYMENT WAS ALREADY POSTED FOR THIS E-SLIP :: IT CANNOT BE DELETED");
-                response.setResponse("DELETE PRN :: PAYMENT WAS ALREADY POSTED FOR THIS E-SLIP :: IT CANNOT BE DELETED");
+                logger.info("DELETE PRN :: FAILED TO DELETE AN E-SLIP (PRN) :: THIS PRN WAS ALREADY DELETED :: " + update);
+                response.setResponse("DELETE PRN :: FAILED TO DELETE AN E-SLIP (PRN) :: THIS PRN WAS ALREADY DELETED");
             }
+        } else {
+            logger.info("DELETE PRN :: PAYMENT WAS ALREADY POSTED FOR THIS E-SLIP :: IT CANNOT BE DELETED");
+            response.setResponse("DELETE PRN :: PAYMENT WAS ALREADY POSTED FOR THIS E-SLIP :: IT CANNOT BE DELETED");
+        }
         //----END OF DATABASE UPDATE ----\\
         return response;
     }
 
+    //PDF to Base 64
+    public String getBytesFromUri(String fileName) throws IOException {
+        File f = new File(fileName);
+        byte[] p = FileUtils.readFileToByteArray(f);
+        Base64 codec = new Base64();
+        String encoded = codec.encodeBase64String(p);
+        return encoded;
+    }
 }

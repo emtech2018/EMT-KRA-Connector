@@ -10,6 +10,7 @@ import java.io.File;
 import java.sql.Connection;
 import java.util.Map;
 
+/*@author Omukubwa Emukule*/
 
 //This Class consists the code for printing receipts after a payment has been made successfully
 public class TaxReceipts {

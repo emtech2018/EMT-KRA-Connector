@@ -3,7 +3,8 @@ package com.emtech.service.itax.utilities;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
-import java.util.ResourceBundle;
+
+/*@author Omukubwa Emukule*/
 
 public class Configurations {
     Properties prop;

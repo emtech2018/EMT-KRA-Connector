@@ -5,6 +5,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+/*@author Omukubwa Emukule*/
+
+
 //All Database Methods for handling C.R.U.D Operations
 public class DatabaseMethods {
     //Logging
@@ -96,7 +99,7 @@ public class DatabaseMethods {
                     k = rs.getString(1);
                 } else {
                     String b = rs.getString(1);
-                    for (int q = 2; q <= w;) {
+                    for (int q = 2; q <= w; ) {
                         b = b + "," + rs.getString(q);
                         q++;
                     }

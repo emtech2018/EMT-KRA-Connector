@@ -9,6 +9,8 @@ import com.emtech.service.Numbers2Words;
 import com.emtech.service.itax.tcs.kra.pg.facade.impl.CheckEslipResponse;
 import com.emtech.service.itax.tcs.kra.pg.facade.impl.KRAPaymentGatewayService;
 import com.emtech.service.itax.utilities.*;
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.SftpException;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.util.JRLoader;
 import org.slf4j.Logger;
@@ -40,40 +42,64 @@ import java.util.*;
 
 /**
  *
- * @author emukule
+ * @author Omukubwa Emukule
  */
 @WebService(serviceName = "PaymentService")
 public class PaymentService {
     //Instance of the Configuration Classes
     Configurations cn = new Configurations();
+
     //Log In ID
     private String LOGINID = cn.getProperties().getProperty("itax.username").trim();
+
     //Password
     private String PASSWORD = cn.getProperties().getProperty("itax.password").trim();
+
     //Bank Code
     private String BANKCODE = cn.getProperties().getProperty("itax.bankcode").trim();
+
     //System Code
     private String SYSTEMCODE = cn.getProperties().getProperty("itax.systemcode").trim();
+
     //Payment Mode
     private String PAYMENTMODE = cn.getProperties().getProperty("itax.mofp1").trim();
+
     //Currency
     private String CURRENCY = cn.getProperties().getProperty("itax.currency").trim();
+
     //Remitter Id
     private String REMiTTERID = cn.getProperties().getProperty("itax.remitterid").trim();
+
     //Remitter Name
-    private String REMITTERNAME = cn.getProperties().getProperty("itax.remittername").trim();
+    //private String REMITTERNAME = cn.getProperties().getProperty("itax.remittername").trim();
+
+    //Remitter Name
+    private String REMITTERNAME = UUID.randomUUID().toString();
+
     //Teller Name
     private String tellername = cn.getProperties().getProperty("itax.tellername").trim();
+
     //Bank Branch
     private String bankbranch = cn.getProperties().getProperty("itax.bankbranch").trim();
+
     //Encryption Key
     private String key = cn.getProperties().getProperty("enc.key").trim();
+
     //Encryption Init Vector
     private String initVector =  cn.getProperties().getProperty("enc.initVector").trim();
+
     //Database Connection Class
     DatabaseMethods db = new DatabaseMethods();
+
     //Common Utilities Class
     CommonUtils cu = new CommonUtils();
+
+    //Instance of SFTP class
+    sftp ftp = new sftp();
+
+    //Instance of numbers (amount) to words class
+    Numbers2Words ntw = new Numbers2Words();
+
     //LOGGING
     private static final Logger logger= LoggerFactory.getLogger(PaymentService.class);
     //Random Number (Trace No)
@@ -430,7 +456,7 @@ public class PaymentService {
     public PaymentResponse postTaxPayment(@WebParam(name = "eSlipNumber", targetNamespace = "") String eSlipNumber,
                                           @WebParam(name = "meansOfPayment", targetNamespace = "") String meansOfPayment,
                                           @WebParam(name = "chequeno", targetNamespace = "") String chequeno,
-                                          @WebParam(name = "account", targetNamespace = "") String account) throws IOException, JAXBException, ClassNotFoundException, SQLException, JRException {
+                                          @WebParam(name = "account", targetNamespace = "") String account) throws IOException, JAXBException, ClassNotFoundException, SQLException, JRException, JSchException, SftpException {
         System.out.println("E-Slip Number : " + eSlipNumber);
         String ccrspayment = "";
         //More Variables
@@ -446,6 +472,8 @@ public class PaymentService {
         String means_of_pmnt = "";
 
         //Queries
+        //Select Query (Post Status)
+        String select_query = cn.getProperties().getProperty("sql.query.select.payment.status");
         //Select details from e-slip data table
         //Array with all data selected from the eslip data table
         String[] eslipdata = null;
@@ -470,7 +498,7 @@ public class PaymentService {
         String pay_details = DatabaseMethods.selectValues(selectquery, 2, 1, eSlipNumber);
         if(!pay_details.equalsIgnoreCase("")) {
             paymentdata= pay_details.split(",");
-            poststat_us = paymentdata[0];
+            //poststat_us = paymentdata[0];
             means_of_pmnt = paymentdata[1];
         }
 
@@ -707,12 +735,16 @@ public class PaymentService {
                         + "," + hashcode + "," + bankofcheque + "," + branchofcheque + "," + chequenumber + "," + chequedate + "," + chequeamount
                         + "," + chequeaccount + "," + dateofpayment + "," + poststatus + "," + response_Status + "," + response_code + "," + m_essage + "," + channelid + "," + currency;
                 //Check for duplicates
-                if (poststat_us.equalsIgnoreCase("PS")) {
+                if (DatabaseMethods.findDuplicates(select_query, 1, eSlipNumber)) {
                     System.out.println("POST PAYMENT :: SAVE DATA TO BE SENT TO DB :: CHECKING DUPLICATES :: RESULTS :: Found this e-slip number in the db");
                 } else {
                     int insert = DatabaseMethods.DB(sendsql, 33, data);
                     logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: DONE SAVING PAYMENT DATA :: RESULT :: " + insert);
                 }
+
+                //Select Post Status from payment details table
+                poststat_us = DatabaseMethods.selectValues(select_query,1,1,eSlipNumber);
+
                 //----END OF DATABASE INSERT ----\\
 
                 //Posting Payment
@@ -770,9 +802,8 @@ public class PaymentService {
                                 int i = DatabaseMethods.DB(update_eslip_query, 2, eslipstatus_data);
                                 logger.info("POST PAYMENT :: DONE UPDATING E-SLIP-DATA-TABLE :: RESULT :: " + i);
 
+                                //START OF RECEIPT SAVING\\
                                 //Save the Receipt as a Pdf file after successful payment
-                                Numbers2Words ntw = new Numbers2Words();
-                                //--Database (Oracle DB) Connection Code --\\
                                 String c_lass = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.class")).trim();
                                 Class.forName(c_lass);
                                 String serverName = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.ip").trim());
@@ -781,57 +812,94 @@ public class PaymentService {
                                 String url = "jdbc:oracle:thin:@" + serverName + ":" + portNumber + ":" + sid;
                                 String uname = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.username").trim());
                                 String pass = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.password").trim());
-
                                 String input = "";
-                                String output = folder + "receipt.pdf";
+                                String output =folder+"receipt.PDF";
 
                                 //Queries
-                                String amnt = amount;
-                                String mop = means_of_pmnt;
-                                //Check the means of Payment
-                                if (mop.equalsIgnoreCase("1")) {
-                                    mop = "Cash";
-                                    input = folder + "receipt.jasper";
+                                //Select Amount
+                                String select_amount = cn.getProperties().getProperty("sql.query.select.amount").trim();
+                                //Select E-Slip Status From the Database
+                                String select_status = cn.getProperties().getProperty("sql.query.select.eslipstatus").trim();
+                                String tax_amount = DatabaseMethods.selectValues(select_amount, 1, 1, eSlipNumber);
+                                String status = DatabaseMethods.selectValues(select_status, 1, 1, eSlipNumber);
+                                //Response
+                                String respon_se = "";
+                                //Check if Payment Has Been Posted for the selected PRN
+                                if(status.equalsIgnoreCase("N"))
+                                {
+                                    respon_se = "Failed! E-Slip Status is N :: Payment Not Yet Posted :: Post Payment First!";
+                                    System.out.println("PRINT RECEIPT :: FAILED :: RESPONSE :: " + response);
                                 }
-                                if (mop.equalsIgnoreCase("2")) {
-                                    mop = "Cheque";
-                                    input = folder + "cheque.jasper";
-                                }
-                                if (mop.equalsIgnoreCase("3")) {
-                                    mop = "Both (Cheque and Cash)";
-                                    input = folder + "cheque.jasper";
-                                }
-                                String resp_onse = "";
-                                //Check if amount is 0
-                                if (!amnt.equalsIgnoreCase("0") && !amnt.equalsIgnoreCase("")) {
-                                    String word = null;
-                                    word = ntw.EnglishNumber(Long.parseLong(amount));
-                                    Connection con = DriverManager.getConnection(url, uname, pass);
-                                    JasperReport jasperReport
-                                            = (JasperReport) JRLoader.loadObjectFromFile(input);
-                                    Map parameters = new HashMap();
-                                    parameters.put("prn", eSlipNumber);
-                                    parameters.put("words", word);
-                                    parameters.put("mop", mop);
-                                    // Fill the Jasper Report
-                                    JasperPrint jasperPrint
-                                            = JasperFillManager.fillReport(jasperReport, parameters, con);
-                                    // Creation of the Pdf Jasper Reports
-                                    Path path = Paths.get(folder, "receipt.pdf");
-                                    // Creation of the Pdf Jasper Reports
-                                    File f = new File(output.trim());
-                                    if (f.exists() && !f.isDirectory()) {
-                                        output = folder + "receipt-" + eSlipNumber + ".pdf";
-                                        path = Paths.get(folder, "receipt-" + eSlipNumber + ".pdf");
+                                //Proceed Printing a receipt if payment was posted
+                                else if(status.equalsIgnoreCase("Y")) {
+                                    //Select Means of Payment
+                                    String select_mop = cn.getProperties().getProperty("sql.query.select.meansofpayment").trim();
+                                    String mop = DatabaseMethods.selectValues(select_mop, 1, 1, eSlipNumber);
+
+                                    //Check the means of Payment
+                                    if (mop.equalsIgnoreCase("1")) {
+                                        mop = "Cash";
+                                        input = folder + "receipt.jasper";
                                     }
-                                    JasperExportManager.exportReportToPdfFile(jasperPrint, output);
-                                    Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rwxrwxrwx"));
-                                    resp_onse = "Successful!";
-                                    logger.info("POST PAYMENT :: SAVE RECEIPT :: DONE :: RECEIPT NAME :: " + output + " :: RESPONSE :: " + resp_onse);
-                                } else {
-                                    resp_onse = "Failed because amount is Ksh.0";
-                                    logger.info("POST PAYMENT :: SAVE RECEIPT :: FAILED :: RESPONSE :: " + resp_onse);
+                                    if (mop.equalsIgnoreCase("2")) {
+                                        mop = "Cheque";
+                                        input = folder + "cheque.jasper";
+                                    }
+                                    if (mop.equalsIgnoreCase("3")) {
+                                        mop = "Both (Cheque and Cash)";
+                                        input = folder + "cheque.jasper";
+                                    }
+                                    //Check if amount is 0
+                                    if (!tax_amount.equalsIgnoreCase("0") && !tax_amount.equalsIgnoreCase("")) {
+                                        String word = null;
+                                        word = ntw.EnglishNumber(Long.parseLong(tax_amount));
+                                        Connection con = DriverManager.getConnection(url, uname, pass);
+                                        JasperReport jasperReport
+                                                = (JasperReport) JRLoader.loadObjectFromFile(input);
+                                        Map parameters = new HashMap();
+                                        parameters.put("prn", eSlipNumber);
+                                        parameters.put("words", word);
+                                        parameters.put("mop", mop);
+                                        // Fill the Jasper Report
+                                        JasperPrint jasperPrint
+                                                = JasperFillManager.fillReport(jasperReport, parameters, con);
+                                        Path path = Paths.get(folder, "receipt.PDF");
+                                        // Creation of the Pdf Jasper Reports
+                                        File f = new File(output.trim());
+                                        if (f.exists() && !f.isDirectory()) {
+                                            output = folder + "receipt-" + eSlipNumber + ".PDF";
+                                            path = Paths.get(folder, "receipt-" + eSlipNumber + ".PDF");
+                                        }
+                                        JasperExportManager.exportReportToPdfFile(jasperPrint, output);
+                                        //Send to Printer
+                                        //PrintReceipt pr = new PrintReceipt();
+                                        //pr.printNow(output);
+                                        Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rwxrwxrwx"));
+                                        respon_se = "Successful!";
+                                        String uploadfile = "receipt-" + eSlipNumber + ".PDF";
+                                        System.out.println("PRINT RECEIPT :: DONE :: RECEIPT NAME :: " + uploadfile + " :: RESPONSE :: " + response);
+                                        System.out.println("START SENDING TO SFTP SERVER :: Filename :: "+uploadfile);
+                                        try {
+                                            ftp.uploadToRemote(uploadfile);
+                                            System.out.println("DONE SENDING TO SFTP SERVER :: Filename :: "+uploadfile);
+                                        } catch (JSchException e) {
+                                            System.out.println(e.getLocalizedMessage());
+                                        } catch (SftpException e) {
+                                            System.out.println(e.getLocalizedMessage());
+                                        }
+
+                                    } else {
+                                        respon_se = "Failed because amount is Ksh.0";
+                                        System.out.println("PRINT RECEIPT :: FAILED :: RESPONSE :: " + response);
+                                    }
                                 }
+                                //If No status is returned for the prn (not Y,N)
+                                else
+                                {
+                                    respon_se = "Failed! E-Slip Status Not Found!";
+                                    System.out.println("PRINT RECEIPT :: FAILED :: RESPONSE :: " + response);
+                                }
+                                //END OF RECEIPT SAVING\\
                             }
                         } else {
                             logger.info("POST PAYMENT :: SAVE RESULTS TO DB :: RESPONSE FOR THIS PRN WAS ALREADY RECEIVED :: SKIPPING UPDATE TASK");
@@ -1103,75 +1171,86 @@ public class PaymentService {
     @ResponseWrapper(localName = "PrintResponse", targetNamespace = "")
     public ReceiptResponse printReceipt(
             @WebParam(name = "eslipNumber", targetNamespace = "") String eSlipNumber) throws IOException, JAXBException, ClassNotFoundException, JRException, SQLException
-        {
-            Numbers2Words ntw = new Numbers2Words();
-            String c_lass = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.class")).trim();
-            Class.forName(c_lass);
-            String serverName = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.ip").trim());
-            String portNumber = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.port").trim());
-            String sid = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.database").trim());
-            String url = "jdbc:oracle:thin:@" + serverName + ":" + portNumber + ":" + sid;
-            String uname = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.username").trim());
-            String pass = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.password").trim());
-            String input = "";
-            String output = folder + "receipt.pdf";
+    {
+        Numbers2Words ntw = new Numbers2Words();
+        String c_lass = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.class")).trim();
+        Class.forName(c_lass);
+        String serverName = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.ip").trim());
+        String portNumber = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.port").trim());
+        String sid = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.database").trim());
+        String url = "jdbc:oracle:thin:@" + serverName + ":" + portNumber + ":" + sid;
+        String uname = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.username").trim());
+        String pass = Encryptor.decrypt(key, initVector, cn.getProperties().getProperty("db.password").trim());
+        String input = "";
+        String output = folder + "receipt.PDF";
 
-            //Queries
-            //Select Amount
-            String select_amount = cn.getProperties().getProperty("sql.query.select.amount").trim();
-            String amnt = DatabaseMethods.selectValues(select_amount, 1, 1, eSlipNumber);
-            //Select Means of Payment
-            String select_mop = cn.getProperties().getProperty("sql.query.select.meansofpayment").trim();
-            String mop = DatabaseMethods.selectValues(select_mop, 1, 1, eSlipNumber);
+        //Queries
+        //Select Amount
+        String select_amount = cn.getProperties().getProperty("sql.query.select.amount").trim();
+        String amnt = DatabaseMethods.selectValues(select_amount, 1, 1, eSlipNumber);
+        //Select Means of Payment
+        String select_mop = cn.getProperties().getProperty("sql.query.select.meansofpayment").trim();
+        String mop = DatabaseMethods.selectValues(select_mop, 1, 1, eSlipNumber);
 
-            //Check the means of Payment
-            if (mop.equalsIgnoreCase("1")) {
-                mop = "Cash";
-                input = folder + "receipt.jasper";
+        //Check the means of Payment
+        if (mop.equalsIgnoreCase("1")) {
+            mop = "Cash";
+            input = folder + "receipt.jasper";
+        }
+        if (mop.equalsIgnoreCase("2")) {
+            mop = "Cheque";
+            input = folder + "cheque.jasper";
+        }
+        if (mop.equalsIgnoreCase("3")) {
+            mop = "Both (Cheque and Cash)";
+            input = folder + "cheque.jasper";
+        }
+        String resp_onse = "";
+        //Instance of the Receipt Response Class
+        ReceiptResponse response = new ReceiptResponse();
+        //Check if amount is 0
+        if (!amnt.equalsIgnoreCase("0") && !amnt.equalsIgnoreCase("")) {
+            String word = null;
+            word = ntw.EnglishNumber(Long.parseLong(amnt));
+            Connection con = DriverManager.getConnection(url, uname, pass);
+            JasperReport jasperReport
+                    = (JasperReport) JRLoader.loadObjectFromFile(input);
+            Map parameters = new HashMap();
+            parameters.put("prn", eSlipNumber);
+            parameters.put("words", word);
+            parameters.put("mop", mop);
+            // Fill the Jasper Report
+            JasperPrint jasperPrint
+                    = JasperFillManager.fillReport(jasperReport, parameters, con);
+            // Creation of the Pdf Jasper Reports
+            Path path = Paths.get(folder, "receipt.PDF");
+            // Creation of the Pdf Jasper Reports
+            File f = new File(output.trim());
+            if (f.exists() && !f.isDirectory()) {
+                output = folder + "receipt-" + eSlipNumber + ".PDF";
+                path = Paths.get(folder, "receipt-" + eSlipNumber + ".PDF");
             }
-            if (mop.equalsIgnoreCase("2")) {
-                mop = "Cheque";
-                input = folder + "cheque.jasper";
+            JasperExportManager.exportReportToPdfFile(jasperPrint, output);
+            Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rwxrwxrwx"));
+            resp_onse = "TAX RECEIPT :: SAVE RECEIPT :: DONE :: RECEIPT NAME :: " + output + " :: RESPONSE :: Successful!";
+            response.setResponse(resp_onse);
+            logger.info("TAX RECEIPT :: SAVE RECEIPT :: DONE :: RECEIPT NAME :: " + output + " :: RESPONSE :: Successful!");
+            String uploadfile = "receipt-" + eSlipNumber + ".PDF";
+            System.out.println("PRINT RECEIPT :: DONE :: RECEIPT NAME :: " + uploadfile + " :: RESPONSE :: " + response);
+            System.out.println("START SENDING TO SFTP SERVER :: Filename :: "+uploadfile);
+            try {
+                ftp.uploadToRemote(uploadfile);
+                System.out.println("DONE SENDING TO SFTP SERVER :: Filename :: "+uploadfile);
+            } catch (JSchException e) {
+                System.out.println(e.getLocalizedMessage());
+            } catch (SftpException e) {
+                System.out.println(e.getLocalizedMessage());
             }
-            if (mop.equalsIgnoreCase("3")) {
-                mop = "Both (Cheque and Cash)";
-                input = folder + "cheque.jasper";
-            }
-            String resp_onse = "";
-            //Instance of the Receipt Response Class
-            ReceiptResponse response = new ReceiptResponse();
-            //Check if amount is 0
-            if (!amnt.equalsIgnoreCase("0") && !amnt.equalsIgnoreCase("")) {
-                String word = null;
-                word = ntw.EnglishNumber(Long.parseLong(amnt));
-                Connection con = DriverManager.getConnection(url, uname, pass);
-                JasperReport jasperReport
-                        = (JasperReport) JRLoader.loadObjectFromFile(input);
-                Map parameters = new HashMap();
-                parameters.put("prn", eSlipNumber);
-                parameters.put("words", word);
-                parameters.put("mop", mop);
-                // Fill the Jasper Report
-                JasperPrint jasperPrint
-                        = JasperFillManager.fillReport(jasperReport, parameters, con);
-                // Creation of the Pdf Jasper Reports
-                Path path = Paths.get(folder, "receipt.pdf");
-                // Creation of the Pdf Jasper Reports
-                File f = new File(output.trim());
-                if (f.exists() && !f.isDirectory()) {
-                    output = folder + "receipt-" + eSlipNumber + ".pdf";
-                    path = Paths.get(folder, "receipt-" + eSlipNumber + ".pdf");
-                }
-                JasperExportManager.exportReportToPdfFile(jasperPrint, output);
-                Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rwxrwxrwx"));
-                resp_onse = "TAX RECEIPT :: SAVE RECEIPT :: DONE :: RECEIPT NAME :: " + output + " :: RESPONSE :: Successful!";
-                response.setResponse(resp_onse);
-                logger.info("TAX RECEIPT :: SAVE RECEIPT :: DONE :: RECEIPT NAME :: " + output + " :: RESPONSE :: Successful!");
-            } else {
-                resp_onse = "TAX RECEIPT :: SAVE RECEIPT :: FAILED :: RESPONSE :: Failed because amount is Ksh.0";
-                response.setResponse(resp_onse);
-                logger.info("TAX RECEIPT :: SAVE RECEIPT :: FAILED :: RESPONSE :: Failed because amount is Ksh.0");
-            }
+        } else {
+            resp_onse = "TAX RECEIPT :: SAVE RECEIPT :: FAILED :: RESPONSE :: Failed because amount is Ksh.0";
+            response.setResponse(resp_onse);
+            logger.info("TAX RECEIPT :: SAVE RECEIPT :: FAILED :: RESPONSE :: Failed because amount is Ksh.0");
+        }
         return response;
     }
 
