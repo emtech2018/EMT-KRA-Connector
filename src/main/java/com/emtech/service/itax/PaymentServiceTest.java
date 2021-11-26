@@ -45,7 +45,7 @@ import java.util.*;
  * @author Omukubwa Emukule
  */
 @WebService(serviceName = "PaymentService")
-public class PaymentService {
+public class PaymentServiceTest {
     //Instance of the Configuration Classes
     Configurations cn = new Configurations();
 
@@ -159,8 +159,8 @@ public class PaymentService {
         cu.disableVerification();
         logger.info("STARTING CONSULTING PRN NUMBER "+ prn);
         logger.info("Connecting to the Payment Gateway " + kra.getWSDLDocumentLocation());
-        kra.getWSDLDocumentLocation().openConnection().connect();
-        kra.getWSDLDocumentLocation().openConnection().setConnectTimeout(PAYMENT_GATEWAY_WEBSERVICE_TIMEOUT);
+        //kra.getWSDLDocumentLocation().openConnection().connect();
+        //kra.getWSDLDocumentLocation().openConnection().setConnectTimeout(PAYMENT_GATEWAY_WEBSERVICE_TIMEOUT);
 
         //----START OF DATABASE INSERT ----\\
         //SAVE DETAILS TO BE SENT TO KRA FOR CONSULTING IN THE DATABASE
@@ -198,7 +198,7 @@ public class PaymentService {
             String senddata = "" + traceno + "," + prn + ",N/A" + ",N/A" + ",N/A" + ",N/A" + ",N/A" + ",N/A" + ",N/A" + ",N/A" + ",0000" + ",N/A" + ",N/A" + ",0000" + ",N/A" + ",N/A" + ",0000" + "," + new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date()) + "," + new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date()) + "," + "N" + "," + "CS";
             //Check e-slip status
             if ((DatabaseMethods.selectValues(select_eslipstatus_query, 1,1, prn)).equalsIgnoreCase("Y")) {
-               System.out.println("CONSULT E-SLIP :: SAVE DATA TO BE SENT TO DB :: CHECKING E-SLIP STATUS :: RESULTS ::Payment Already Posted For this PRN!");
+                System.out.println("CONSULT E-SLIP :: SAVE DATA TO BE SENT TO DB :: CHECKING E-SLIP STATUS :: RESULTS ::Payment Already Posted For this PRN!");
             }
             else if((DatabaseMethods.selectValues(select_eslipstatus_query, 1,1, prn)).equalsIgnoreCase("N")) {
                 //Delete existing record then insert again
@@ -221,8 +221,32 @@ public class PaymentService {
             logger.info("Consulting the E-SLIP No " + prn);
             //Disable Certificate Checking
             cu.disableVerification();
-
-            responseXML = kra.getKRAPaymentGatewayPort().checkEslip(username, password, prn);
+//          responseXML = kra.getKRAPaymentGatewayPort().checkEslip(username, password, prn);
+            responseXML = "<ESLIP>\n" +
+                    "<RESULT>\n" +
+                    "<Status>VALID</Status>\n" +
+                    "<Remarks>REQUESTED/CONSULTED E SLIP NUMBER (PRN) EXISTS IN THE SYSTEM</Remarks>\n" +
+                    "</RESULT>\n" +
+                    "<hashCode>526326a00c125f064c2fc7bcd3119f2a4b7b0e7bd3006651a32a766e995b2d71</hashCode>\n" +
+                    "<ESLIPHEADER>\n" +
+                    "<SystemCode>PG</SystemCode>\n" +
+                    "<EslipNumber>" + prn + "</EslipNumber>\n" +
+                    "<SlipPaymentCode></SlipPaymentCode>\n" +
+                    "<PaymentAdviceDate>2021-07-09T16:43:06</PaymentAdviceDate>\n" +
+                    "<TaxpayerPin>P000598480M</TaxpayerPin>\n" +
+                    "<TaxpayerFullName>Siginon Group Limited</TaxpayerFullName>\n" +
+                    "<TotalAmount>5493</TotalAmount>\n" +
+                    "<DocRefNumber></DocRefNumber>\n" +
+                    "<Currency>KES</Currency>\n" +
+                    "</ESLIPHEADER>\n" +
+                    "<ESLIPDETAILS>\n" +
+                    "<TaxCode>1506</TaxCode>\n" +
+                    "<TaxHead></TaxHead>\n" +
+                    "<TaxComponent>Licence Application Fee       </TaxComponent>\n" +
+                    "<AmountPerTax>5493</AmountPerTax>\n" +
+                    "<TaxPeriod>2021-07-09</TaxPeriod>\n" +
+                    "</ESLIPDETAILS>\n" +
+                    "</ESLIP>";
 
             logger.info("Unmarshalling the XML Response Now " + responseXML);
             //response.setPaymentEslip(responseXML);
@@ -235,9 +259,6 @@ public class PaymentService {
                 String responseStatus = ((Result) XmltoJavaObj.getRESULT().get(0)).getStatus();
                 String responseHash = XmltoJavaObj.getHashCode();
                 String responseRemaks = ((Result) XmltoJavaObj.getRESULT().get(0)).getRemarks();
-
-                //Remove commas in response remarks
-                responseRemaks = responseRemaks.replace(",",".");
 
                 //Arraylist of results
                 Result rst = new Result();
@@ -280,7 +301,7 @@ public class PaymentService {
                     String pstdflag_data = "N,"+eslipNumber;
 
                     //Check length of details array
-                    //int tc = XmltoJavaObj.getESLIPDETAILS().size();
+                    int tc = XmltoJavaObj.getESLIPDETAILS().size();
 
                     if(XmltoJavaObj.getESLIPDETAILS().size() <=1)
                     {
@@ -295,26 +316,21 @@ public class PaymentService {
                         //Check if pstdflag != N
                         int b = Integer.parseInt(DatabaseMethods.selectValues(select_pstflag_query,1,2,pstdflag_data));
                         if(b > 0) {
-                            DatabaseMethods.DB(delete_query, 1, eslipNumber);
-                            int ins = DatabaseMethods.DB(components_query, 7, data);
-                            logger.info("");
-                            logger.info("");
-                            logger.info("CONSULT E-SLIP :: SAVE TAXCOMPONENTS :: Result :: "+ins);
+                            int del = DatabaseMethods.DB(delete_query, 1, eslipNumber);
+                            int insert = DatabaseMethods.DB(components_query, 7, data);
                         }
                         else
                         {
-                            int ins = DatabaseMethods.DB(components_query, 7, data);
-                            logger.info("");
-                            logger.info("");
-                            logger.info("CONSULT E-SLIP :: SAVE TAXCOMPONENTS :: Result :: "+ins);
+                            DatabaseMethods.DB(components_query, 7, data);
                         }
                     }
                     else
                     {
                         //Check if pstdflag != N
                         int a = Integer.parseInt(DatabaseMethods.selectValues(select_pstflag_query,1,2,pstdflag_data));
+                        System.out.println(a);
                         if(a > 0) {
-                            DatabaseMethods.DB(delete_query, 1, eslipNumber);
+                            int del = DatabaseMethods.DB(delete_query, 1, eslipNumber);
                             for (int i = 0; i < XmltoJavaObj.getESLIPDETAILS().size(); i++) {
                                 //E-Slip Details
                                 taxcode = ((EslipDetails) XmltoJavaObj.getESLIPDETAILS().get(i)).getTaxCode();
@@ -323,10 +339,9 @@ public class PaymentService {
                                 amountpertax = ((EslipDetails) XmltoJavaObj.getESLIPDETAILS().get(i)).getAmountPerTax();
                                 taxperiod = ((EslipDetails) XmltoJavaObj.getESLIPDETAILS().get(i)).getTaxPeriod();
                                 String data = "" + eslipNumber + "," + taxcode + "," + taxhead + "," + taxcomponent + "," + amountpertax + "," + taxperiod + "," + trandate;
-                                int ins = DatabaseMethods.DB(components_query, 7, data);
-                                logger.info("");
-                                logger.info("");
-                                logger.info("CONSULT E-SLIP :: SAVE TAXCOMPONENTS :: Result :: "+ins);
+                                System.out.println(taxcomponent);
+                                int insert = DatabaseMethods.DB(components_query, 7, data);
+                                System.out.println(insert);
                             }
                         }
                         else
@@ -339,10 +354,9 @@ public class PaymentService {
                                 amountpertax = ((EslipDetails) XmltoJavaObj.getESLIPDETAILS().get(i)).getAmountPerTax();
                                 taxperiod = ((EslipDetails) XmltoJavaObj.getESLIPDETAILS().get(i)).getTaxPeriod();
                                 String data = "" + eslipNumber + "," + taxcode + "," + taxhead + "," + taxcomponent + "," + amountpertax + "," + taxperiod + "," + trandate;
-                                int ins = DatabaseMethods.DB(components_query, 7, data);
-                                logger.info("");
-                                logger.info("");
-                                logger.info("CONSULT E-SLIP :: SAVE TAXCOMPONENTS :: Result :: "+ins);
+                                System.out.println(taxcomponent);
+                                int insert = DatabaseMethods.DB(components_query, 7, data);
+                                System.out.println(insert);
                             }
                         }
 
@@ -405,6 +419,7 @@ public class PaymentService {
                     //----START OF DATABASE UPDATE ----\\
                     //Save PRN details in the database
                     logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: STARTING TO SAVE E-SLIP RESULTS FOR STATUS VALID");
+                    System.out.println("Component = "+taxcomponent);
                     String data = "" + responseStatus + "," + responseRemaks + "," + responseHash + "," + systemCode + "," + slippaymentcode + "," + paymentadvicedate + "," + taxPayerpin + "," + taxpayername + "," + totalamount + "," + docrefno + "," + currency + "," + taxcode + "," + taxhead + "," + taxcomponent + "," + amountpertax + "," + taxperiod + "," + timeStamp + "," + "N" + "," + "CR" + "," + prn;
                     int update = 0;
                     //Checking the Consult Status before making an update
@@ -413,7 +428,7 @@ public class PaymentService {
                     logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DATA INSERTED :: " + data);
                     logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DONE SAVING E-SLIP RESULTS :: RESULT :: " + update);
                     //} else {
-                      //  logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: RESPONSE FOR THIS PRN WAS ALREADY RECEIVED :: SKIPPING UPDATE TASK");
+                    //  logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: RESPONSE FOR THIS PRN WAS ALREADY RECEIVED :: SKIPPING UPDATE TASK");
                     //}
                     //----END OF DATABASE UPDATE ----\\
                 }
@@ -473,15 +488,16 @@ public class PaymentService {
                     //----START OF DATABASE UPDATE ----\\
                     //Save PRN details in the database
                     logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: STARTING TO SAVE E-SLIP RESULTS FOR STATUS ERROR");
+
                     String data = "" + responseStatus + "," + responseRemaks + "," + responseHash + "," + timeStamp + "," + "N" + "," + "CR" + "," + prn;
                     int update = 0;
                     //Checking the Consult Status before making an update
                     //if (DatabaseMethods.selectValues(select_query, 1, 1, prn).equalsIgnoreCase("CS")) {
-                        update = DatabaseMethods.DB(update_query, 7, data);
-                        logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DATA INSERTED :: " + data);
-                        logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DONE SAVING E-SLIP RESULTS :: RESULT :: " + update);
+                    update = DatabaseMethods.DB(update_query, 7, data);
+                    logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DATA INSERTED :: " + data);
+                    logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DONE SAVING E-SLIP RESULTS :: RESULT :: " + update);
                     //} else {
-                     //   logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: RESPONSE FOR THIS PRN WAS ALREADY RECEIVED :: SKIPPING UPDATE TASK");
+                    //   logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: RESPONSE FOR THIS PRN WAS ALREADY RECEIVED :: SKIPPING UPDATE TASK");
                     //}
                     //----END OF DATABASE UPDATE ----\\
                 }
@@ -512,9 +528,9 @@ public class PaymentService {
                     int update = 0;
                     //Checking the Consult Status before making an update
                     //if (DatabaseMethods.selectValues(select_query, 1, 1, prn).equalsIgnoreCase("CS")) {
-                        update = DatabaseMethods.DB(update_query, 7, data);
-                        logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DATA INSERTED :: " + data);
-                        logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DONE SAVING E-SLIP RESULTS :: RESULT :: " + update);
+                    update = DatabaseMethods.DB(update_query, 7, data);
+                    logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DATA INSERTED :: " + data);
+                    logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DONE SAVING E-SLIP RESULTS :: RESULT :: " + update);
                     //} else {
                     //    logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: RESPONSE FOR THIS PRN WAS ALREADY RECEIVED :: SKIPPING UPDATE TASK");
                     //}
@@ -548,11 +564,11 @@ public class PaymentService {
                     int update = 0;
                     //Checking the Consult Status before making an update
                     //if (DatabaseMethods.selectValues(select_query, 1, 1, prn).equalsIgnoreCase("CS")) {
-                        update = DatabaseMethods.DB(update_query, 7, data);
-                        logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DATA INSERTED :: " + data);
-                        logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DONE SAVING E-SLIP RESULTS :: RESULT :: " + update);
+                    update = DatabaseMethods.DB(update_query, 7, data);
+                    logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DATA INSERTED :: " + data);
+                    logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: DONE SAVING E-SLIP RESULTS :: RESULT :: " + update);
                     //} else {
-                      //  logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: RESPONSE FOR THIS PRN WAS ALREADY RECEIVED :: SKIPPING UPDATE TASK");
+                    //  logger.info("CONSULT E-SLIP :: SAVE RESULTS TO DB :: RESPONSE FOR THIS PRN WAS ALREADY RECEIVED :: SKIPPING UPDATE TASK");
                     //}
                     //----END OF DATABASE UPDATE ----\\
                 } else {

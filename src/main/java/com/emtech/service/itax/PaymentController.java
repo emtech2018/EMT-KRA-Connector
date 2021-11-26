@@ -23,18 +23,22 @@ import java.sql.SQLException;
 public class PaymentController {
     //Instance of the Configuration Classes
     Configurations cn = new Configurations();
-    //Instance of Print Receipt Class
-    PrintReceipt pr = new PrintReceipt();
+
     //Instance of the Payment Service Class
     PaymentService service = new PaymentService();
-    //Instance of Test Service class
-    TestService tservice = new TestService();
+
+    //Instance of Internet Banking Service
+    InternetBankingService ib = new InternetBankingService();
+
     //Instance of numbers (amount) to words class
     Numbers2Words ntw = new Numbers2Words();
+
     //Receipts Folder
     String folder = cn.getProperties().getProperty("itax.folder").trim();
+
     //Encryption Key
     private String key = cn.getProperties().getProperty("enc.key").trim();
+
     //Encryption Init Vector
     private String initVector =  cn.getProperties().getProperty("enc.initVector").trim();
     //Instance of SFTP class
@@ -47,9 +51,9 @@ public class PaymentController {
     }
 
     //Posting Tax Payment end point
-    @RequestMapping("/pay/{prn}/{mop}/{cno}/{account}")
-    public PaymentResponse payTaxCash(@PathVariable("prn") String prn, @PathVariable("mop") String mop, @PathVariable("cno") String cno,@PathVariable("account") String account) throws IOException, JAXBException, JRException, SQLException, ClassNotFoundException, JSchException, SftpException {
-        return service.postTaxPayment(prn,mop,cno,account);
+    @RequestMapping("/pay/{prn}/{mop}/{teller}/{tellerid}/{branch}/{cno}/{account}")
+    public PaymentResponse payTaxCash(@PathVariable("prn") String prn, @PathVariable("mop") String mop,@PathVariable("teller") String teller,@PathVariable("tellerid") String tellerid,@PathVariable("branch") String branch, @PathVariable("cno") String cno,@PathVariable("account") String account) throws IOException, JAXBException, JRException, SQLException, ClassNotFoundException, JSchException, SftpException {
+        return service.postTaxPayment(prn,mop,teller,tellerid,branch,cno,account);
     }
 
     //Print Receipt End-Point
@@ -58,9 +62,22 @@ public class PaymentController {
         return service.printReceipt(prn);
     }
 
+    //Print CBK Settlement Report
+    @RequestMapping("/pdfcbk/{fromdate}/{todate}")
+    public ReceiptResponse printCBKreport(@PathVariable("fromdate")  String fromdate,@PathVariable("todate")  String todate) throws SQLException, ClassNotFoundException, JRException, IOException, JSchException, SftpException, JAXBException {
+        return service.printCBKReport(fromdate,todate);
+    }
+
     //Delete PRN end point
     @RequestMapping("/delete/{prn}")
     public DeletePRNResponse delete(@PathVariable("prn") String prn) {
         return service.deletePRN(prn);
     }
+
+    @RequestMapping("/as")
+    public void auto() throws JRException, SQLException, JAXBException, IOException, ClassNotFoundException {
+        KRAQueue kq = new KRAQueue();
+        kq.autoSendToKra();
+    }
+
 }

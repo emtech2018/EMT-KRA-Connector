@@ -13,7 +13,6 @@ public class Configurations {
 
     }
 
-    //public ResourceBundle rb = ResourceBundle.getBundle("conf/itax");
     public Properties getProperties() {
         prop = new Properties();
         try {

@@ -42,14 +42,20 @@ public class DatabaseConnection {
         return null;
     }
 
-    /*Connecting to MySQL Database
-    public static Connection MySQLConnection() {
+
+    /*public static Connection dbConnection() {
         Connection conn = null;
         try {
             //logger.info("DATABASE CONNECTION :: Connection variables  :: "+host_ip+" :: "+username+" :: "+port+":"+database_name);
-            System.out.println("DATABASE CONNECTION :: Connection variables  :: "+host_ip+" :: "+username+" :: "+port+":"+database_name);
-            Class.forName(classname);
-            conn = DriverManager.getConnection(url + host_ip + ":" + port + "/" + database_name+"?autoReconnect=true&useSSL=false", username, password);
+            String c_lass = Encryptor.decrypt(key, initVector,cn.getProperties().getProperty("db.class")).trim();
+            Class.forName(c_lass);
+            String serverName = Encryptor.decrypt(key, initVector,cn.getProperties().getProperty("db.ip").trim());
+            String portNumber = Encryptor.decrypt(key, initVector,cn.getProperties().getProperty("db.port").trim());
+            String sid = Encryptor.decrypt(key, initVector,cn.getProperties().getProperty("db.database").trim());
+            String url = "jdbc:mysql://";
+            String username = Encryptor.decrypt(key, initVector,cn.getProperties().getProperty("db.username").trim());
+            String password = Encryptor.decrypt(key, initVector,cn.getProperties().getProperty("db.password").trim());
+            conn = DriverManager.getConnection(url + serverName + ":" + portNumber + "/" + sid+"?autoReconnect=true&useSSL=false", username, password);
         } catch (ClassNotFoundException | SQLException asd) {
             System.err.println(asd.getLocalizedMessage());
             //logger.info("DATABASE CONNECTION :: Connection failed :: ERROR :: "+asd.getLocalizedMessage());
@@ -61,8 +67,8 @@ public class DatabaseConnection {
         } else {
         }
         return null;
-    }
-     */
+    }*/
+
 
 
     //Closing the Connection to te database
